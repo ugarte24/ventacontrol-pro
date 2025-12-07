@@ -1,0 +1,193 @@
+// VentaPlus Type Definitions
+
+export type UserRole = 'admin' | 'vendedor';
+
+export interface User {
+  id: string;
+  nombre: string;
+  usuario: string;
+  rol: UserRole;
+  estado: 'activo' | 'inactivo';
+  fecha_creacion: string;
+}
+
+export interface Product {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  precio_venta: number;
+  codigo: string;
+  id_categoria?: string;
+  stock_actual: number;
+  stock_minimo: number;
+  estado: 'activo' | 'inactivo';
+  fecha_creacion: string;
+}
+
+export interface Category {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  estado: 'activo' | 'inactivo';
+}
+
+export interface Client {
+  id: string;
+  nombre: string;
+  ci_nit?: string;
+  telefono?: string;
+  direccion?: string;
+  fecha_registro: string;
+}
+
+export type PaymentMethod = 'efectivo' | 'qr' | 'transferencia';
+
+export interface Sale {
+  id: string;
+  fecha: string;
+  hora: string;
+  total: number;
+  metodo_pago: PaymentMethod;
+  id_cliente?: string;
+  id_vendedor: string;
+  estado: 'completada' | 'anulada';
+}
+
+export interface SaleDetail {
+  id: string;
+  id_venta: string;
+  id_producto: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+}
+
+export interface CartItem extends Product {
+  cantidad: number;
+  subtotal: number;
+}
+
+// Mock data for MVP
+export const mockProducts: Product[] = [
+  {
+    id: '1',
+    nombre: 'Coca Cola 2L',
+    descripcion: 'Bebida gaseosa',
+    precio_venta: 15,
+    codigo: 'BEB001',
+    stock_actual: 50,
+    stock_minimo: 10,
+    estado: 'activo',
+    fecha_creacion: '2024-01-01'
+  },
+  {
+    id: '2',
+    nombre: 'Pan de Molde',
+    descripcion: 'Pan blanco',
+    precio_venta: 12,
+    codigo: 'PAN001',
+    stock_actual: 25,
+    stock_minimo: 5,
+    estado: 'activo',
+    fecha_creacion: '2024-01-01'
+  },
+  {
+    id: '3',
+    nombre: 'Leche Gloria 1L',
+    descripcion: 'Leche evaporada',
+    precio_venta: 8.5,
+    codigo: 'LAC001',
+    stock_actual: 40,
+    stock_minimo: 10,
+    estado: 'activo',
+    fecha_creacion: '2024-01-01'
+  },
+  {
+    id: '4',
+    nombre: 'Arroz Grano de Oro 1kg',
+    descripcion: 'Arroz extra',
+    precio_venta: 9,
+    codigo: 'ARR001',
+    stock_actual: 60,
+    stock_minimo: 15,
+    estado: 'activo',
+    fecha_creacion: '2024-01-01'
+  },
+  {
+    id: '5',
+    nombre: 'Aceite Fino 1L',
+    descripcion: 'Aceite vegetal',
+    precio_venta: 18,
+    codigo: 'ACE001',
+    stock_actual: 30,
+    stock_minimo: 8,
+    estado: 'activo',
+    fecha_creacion: '2024-01-01'
+  },
+  {
+    id: '6',
+    nombre: 'Azúcar Bermejo 1kg',
+    descripcion: 'Azúcar refinada',
+    precio_venta: 8,
+    codigo: 'AZU001',
+    stock_actual: 45,
+    stock_minimo: 10,
+    estado: 'activo',
+    fecha_creacion: '2024-01-01'
+  },
+  {
+    id: '7',
+    nombre: 'Fideos Coronilla 400g',
+    descripcion: 'Fideos spaghetti',
+    precio_venta: 6,
+    codigo: 'FID001',
+    stock_actual: 55,
+    stock_minimo: 12,
+    estado: 'activo',
+    fecha_creacion: '2024-01-01'
+  },
+  {
+    id: '8',
+    nombre: 'Atún Real 170g',
+    descripcion: 'Atún en lata',
+    precio_venta: 14,
+    codigo: 'ATU001',
+    stock_actual: 35,
+    stock_minimo: 8,
+    estado: 'activo',
+    fecha_creacion: '2024-01-01'
+  },
+];
+
+export const mockSales: (Sale & { items: number })[] = [
+  {
+    id: '1',
+    fecha: '2024-01-15',
+    hora: '09:30',
+    total: 45.50,
+    metodo_pago: 'efectivo',
+    id_vendedor: '1',
+    estado: 'completada',
+    items: 3
+  },
+  {
+    id: '2',
+    fecha: '2024-01-15',
+    hora: '10:15',
+    total: 120.00,
+    metodo_pago: 'qr',
+    id_vendedor: '1',
+    estado: 'completada',
+    items: 5
+  },
+  {
+    id: '3',
+    fecha: '2024-01-15',
+    hora: '11:45',
+    total: 78.30,
+    metodo_pago: 'efectivo',
+    id_vendedor: '1',
+    estado: 'completada',
+    items: 4
+  },
+];
