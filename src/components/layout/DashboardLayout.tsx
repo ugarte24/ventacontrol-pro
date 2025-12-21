@@ -26,8 +26,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <SidebarInset className="flex flex-1 flex-col">
-          <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 sm:gap-4 border-b bg-card px-3 sm:px-4 lg:px-6 overflow-hidden">
-            <SidebarTrigger className="-ml-1 sm:-ml-2 flex-shrink-0" />
+          <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 sm:gap-4 border-b bg-card px-3 sm:px-4 lg:px-6 overflow-hidden relative z-50">
+            <SidebarTrigger className="-ml-1 sm:-ml-2 flex-shrink-0 relative z-50" />
             <Separator orientation="vertical" className="h-6 hidden sm:block flex-shrink-0" />
             {title && (
               <h1 className="font-display text-base sm:text-lg font-semibold text-foreground truncate flex-1 min-w-0">{title}</h1>
