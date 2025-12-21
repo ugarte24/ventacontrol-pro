@@ -20,9 +20,9 @@ export function NetworkStatusBanner() {
   if (isOnline && !showReconnected) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 animate-in slide-in-from-top">
+    <div className="fixed top-0 left-0 right-0 z-[55] animate-in slide-in-from-top pointer-events-none">
       {!isOnline ? (
-        <Alert className="rounded-none border-l-0 border-r-0 border-t-0 border-b-2 border-destructive bg-destructive text-destructive-foreground">
+        <Alert className="rounded-none border-l-0 border-r-0 border-t-0 border-b-2 border-destructive bg-destructive text-destructive-foreground pointer-events-auto">
           <WifiOff className="h-4 w-4" />
           <AlertDescription className="flex items-center gap-2">
             <span className="font-semibold">
@@ -34,7 +34,7 @@ export function NetworkStatusBanner() {
           </AlertDescription>
         </Alert>
       ) : (
-        <Alert className="rounded-none border-l-0 border-r-0 border-t-0 border-b-2 border-green-600 bg-green-600 text-white">
+        <Alert className="rounded-none border-l-0 border-r-0 border-t-0 border-b-2 border-green-600 bg-green-600 text-white pointer-events-auto">
           <Wifi className="h-4 w-4" />
           <AlertDescription>
             <span className="font-semibold">
