@@ -25,7 +25,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       <NetworkStatusBanner />
       <div className="flex min-h-screen w-full">
         <AppSidebar />
-        <SidebarInset className="flex flex-1 flex-col">
+        <SidebarInset className="flex flex-1 flex-col min-w-0">
           <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 sm:gap-4 border-b bg-card px-3 sm:px-4 lg:px-6 overflow-hidden relative z-[60]" style={{ isolation: 'isolate' }}>
             <div className="relative z-[70]" style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
               <SidebarTrigger className="-ml-1 sm:-ml-2 flex-shrink-0" />
@@ -52,7 +52,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
               </span>
             </div>
           </header>
-          <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 relative z-0">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 relative z-0 min-h-0 w-full">
             {children}
           </main>
         </SidebarInset>
