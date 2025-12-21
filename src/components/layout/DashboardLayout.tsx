@@ -26,14 +26,14 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <SidebarInset className="flex flex-1 flex-col">
-          <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 sm:gap-4 border-b bg-card px-3 sm:px-4 lg:px-6">
-            <SidebarTrigger className="-ml-1 sm:-ml-2" />
-            <Separator orientation="vertical" className="h-6 hidden sm:block" />
+          <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 sm:gap-4 border-b bg-card px-3 sm:px-4 lg:px-6 overflow-hidden">
+            <SidebarTrigger className="-ml-1 sm:-ml-2 flex-shrink-0" />
+            <Separator orientation="vertical" className="h-6 hidden sm:block flex-shrink-0" />
             {title && (
               <h1 className="font-display text-base sm:text-lg font-semibold text-foreground truncate flex-1 min-w-0">{title}</h1>
             )}
-            <div className="ml-auto flex items-center gap-2 sm:gap-4">
-              <span className="text-xs sm:text-sm text-muted-foreground hidden sm:inline">
+            <div className="ml-auto flex items-center gap-2 sm:gap-4 flex-shrink-0">
+              <span className="text-xs sm:text-sm text-muted-foreground hidden sm:inline whitespace-nowrap">
                 {new Date().toLocaleDateString('es-BO', { 
                   weekday: 'long', 
                   year: 'numeric', 
@@ -41,10 +41,11 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                   day: 'numeric' 
                 })}
               </span>
-              <span className="text-xs sm:text-sm text-muted-foreground sm:hidden">
+              <span className="text-xs text-muted-foreground sm:hidden whitespace-nowrap">
                 {new Date().toLocaleDateString('es-BO', { 
                   day: 'numeric',
-                  month: 'short'
+                  month: 'short',
+                  year: 'numeric'
                 })}
               </span>
             </div>
