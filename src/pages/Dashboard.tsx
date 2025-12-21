@@ -1,21 +1,70 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/ui/stat-card';
-import { useAuth } from '@/contexts/AuthContext';
-import { mockSales, mockProducts } from '@/types';
-import { DollarSign, ShoppingBag, TrendingUp, Package, Clock, AlertTriangle } from 'lucide-react';
+import { useAuth } from '@/contexts';
+import { DollarSign, ShoppingBag, TrendingUp, Package, Clock, AlertTriangle, Bell, BellOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useTodaySales, useSales } from '@/hooks/useSales';
+import { useLowStockProducts } from '@/hooks/useProducts';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { data: salesToday = [], isLoading: loadingSales } = useTodaySales();
+  const { data: allSales = [] } = useSales(); // Para mostrar últimas ventas si no hay ventas hoy
+  const { data: productosStockBajo = [], isLoading: loadingStock } = useLowStockProducts();
+  const { requestPermission, hasPermission, isSupported, isEnabled, enable, disable } = useNotifications();
+  const [notificationEnabled, setNotificationEnabled] = useState(false);
 
-  const totalVentasHoy = mockSales.reduce((sum, sale) => sum + sale.total, 0);
-  const numeroVentas = mockSales.length;
-  const ticketPromedio = totalVentasHoy / numeroVentas;
-  const productosStockBajo = mockProducts.filter(p => p.stock_actual <= p.stock_minimo);
+  // Verificar estado de notificaciones
+  useEffect(() => {
+    if (isSupported()) {
+      const enabled = isEnabled();
+      setNotificationEnabled(enabled);
+    }
+  }, [isSupported, isEnabled]);
+
+  // Toggle de notificaciones (activar/desactivar)
+  const handleToggleNotifications = async () => {
+    if (!isSupported()) {
+      toast.error('Las notificaciones no están soportadas en este navegador');
+      return;
+    }
+
+    if (notificationEnabled) {
+      // Desactivar notificaciones
+      disable();
+      setNotificationEnabled(false);
+      toast.success('Notificaciones desactivadas');
+    } else {
+      // Activar notificaciones - primero verificar permisos
+      if (!hasPermission()) {
+        const permission = await requestPermission();
+        if (permission === 'granted') {
+          enable();
+          setNotificationEnabled(true);
+          toast.success('Notificaciones activadas');
+        } else if (permission === 'denied') {
+          toast.error('Permisos de notificaciones denegados. Por favor, habilítalos en la configuración del navegador.');
+        }
+      } else {
+        // Ya tiene permisos, solo habilitar
+        enable();
+        setNotificationEnabled(true);
+        toast.success('Notificaciones activadas');
+      }
+    }
+  };
+
+  const totalVentasHoy = salesToday.reduce((sum, sale) => sum + sale.total, 0);
+  const numeroVentas = salesToday.length;
+  const ticketPromedio = numeroVentas > 0 ? totalVentasHoy / numeroVentas : 0;
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -26,49 +75,86 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout title="Dashboard">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Welcome Section */}
-        <div className="animate-slide-up">
-          <h2 className="font-display text-2xl font-bold text-foreground">
-            {getGreeting()}, {user?.nombre.split(' ')[0]} 👋
-          </h2>
-          <p className="text-muted-foreground">
-            Aquí tienes el resumen de hoy
-          </p>
+        <div className="animate-slide-up flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h2 className="font-display text-2xl font-bold text-foreground">
+              {getGreeting()}, {user?.nombre.split(' ')[0]}
+            </h2>
+            <p className="text-muted-foreground">
+              Aquí tienes el resumen de hoy
+            </p>
+          </div>
+          {/* Botón de notificaciones desactivado - Solo se usan toasts */}
+          {/* {user?.rol === 'admin' && isSupported() && (
+            <Button
+              variant={notificationEnabled ? 'default' : 'outline'}
+              size="sm"
+              onClick={handleToggleNotifications}
+              className="gap-2"
+            >
+              {notificationEnabled ? (
+                <>
+                  <Bell className="h-4 w-4" />
+                  <span className="hidden sm:inline">Notificaciones ON</span>
+                </>
+              ) : (
+                <>
+                  <BellOff className="h-4 w-4" />
+                  <span className="hidden sm:inline">Notificaciones OFF</span>
+                </>
+              )}
+            </Button>
+          )} */}
         </div>
 
         {/* Stats Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Ventas del Día"
-            value={`Bs. ${totalVentasHoy.toFixed(2)}`}
-            icon={DollarSign}
-            variant="primary"
-            trend={{ value: 12, isPositive: true }}
-          />
-          <StatCard
-            title="Número de Ventas"
-            value={numeroVentas}
-            subtitle="transacciones hoy"
-            icon={ShoppingBag}
-          />
-          <StatCard
-            title="Ticket Promedio"
-            value={`Bs. ${ticketPromedio.toFixed(2)}`}
-            icon={TrendingUp}
-            variant="success"
-          />
-          <StatCard
-            title="Stock Bajo"
-            value={productosStockBajo.length}
-            subtitle="productos por reponer"
-            icon={Package}
-            variant={productosStockBajo.length > 0 ? 'warning' : 'default'}
-          />
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {loadingSales ? (
+            <>
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </>
+          ) : (
+            <>
+              <StatCard
+                title="Ventas del Día"
+                value={`Bs. ${totalVentasHoy.toFixed(2)}`}
+                icon={DollarSign}
+                variant="primary"
+                layout="horizontal-title"
+              />
+              <StatCard
+                title="Número de Ventas"
+                value={numeroVentas}
+                subtitle="transacciones hoy"
+                icon={ShoppingBag}
+                layout="horizontal-title"
+              />
+              <StatCard
+                title="Promedio de Ventas"
+                value={`Bs. ${ticketPromedio.toFixed(2)}`}
+                icon={TrendingUp}
+                variant="success"
+                layout="horizontal-title"
+              />
+              <StatCard
+                title="Stock Bajo"
+                value={loadingStock ? '...' : productosStockBajo.length}
+                subtitle="productos por reponer"
+                icon={Package}
+                variant={productosStockBajo.length > 0 ? 'warning' : 'default'}
+                layout="horizontal-title"
+              />
+            </>
+          )}
         </div>
 
         {/* Quick Actions + Recent Sales */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
           {/* Quick Actions */}
           <Card className="lg:col-span-1 animate-fade-in">
             <CardHeader>
@@ -114,39 +200,98 @@ export default function Dashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {mockSales.map((sale) => (
-                  <div 
-                    key={sale.id} 
-                    className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <ShoppingBag className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">Venta #{sale.id}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {sale.hora} • {sale.items} productos
+              {loadingSales ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : salesToday.length === 0 ? (
+                allSales.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    No hay ventas registradas
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground mb-2">No hay ventas hoy. Mostrando últimas ventas:</p>
+                    {allSales.slice(0, 5).map((sale: any) => {
+                      const detalles = sale.detalle_venta || [];
+                      const primerDetalle = detalles[0];
+                      const producto = primerDetalle?.productos;
+                      
+                      return (
+                        <div 
+                          key={sale.id} 
+                          className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-muted/50"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                              <ShoppingBag className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {producto?.nombre || 'Producto no disponible'}
+                              </p>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                {sale.fecha} {sale.hora} • {primerDetalle?.cantidad || 0} x Bs. {primerDetalle?.precio_unitario?.toFixed(2) || '0.00'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-foreground">Bs. {sale.total.toFixed(2)}</p>
+                            <Badge variant="outline" className="capitalize">
+                              {sale.metodo_pago}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              ) : (
+                <div className="space-y-4">
+                  {salesToday.slice(0, 5).map((sale: any) => {
+                    const detalles = sale.detalle_venta || [];
+                    const primerDetalle = detalles[0];
+                    const producto = primerDetalle?.productos;
+                    
+                    return (
+                      <div 
+                        key={sale.id} 
+                        className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-muted/50"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <ShoppingBag className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {producto?.nombre || 'Producto no disponible'}
+                            </p>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              {sale.fecha} {sale.hora} • {primerDetalle?.cantidad || 0} x Bs. {primerDetalle?.precio_unitario?.toFixed(2) || '0.00'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-foreground">Bs. {sale.total.toFixed(2)}</p>
+                          <Badge variant="outline" className="capitalize">
+                            {sale.metodo_pago}
+                          </Badge>
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-foreground">Bs. {sale.total.toFixed(2)}</p>
-                      <Badge variant="outline" className="capitalize">
-                        {sale.metodo_pago}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
         {/* Low Stock Alert */}
-        {user?.rol === 'admin' && productosStockBajo.length > 0 && (
+        {user?.rol === 'admin' && !loadingStock && productosStockBajo.length > 0 && (
           <Card className="border-warning/30 bg-warning/5 animate-fade-in">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-display text-lg text-warning">

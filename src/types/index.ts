@@ -20,6 +20,7 @@ export interface Product {
   id_categoria?: string;
   stock_actual: number;
   stock_minimo: number;
+  imagen_url?: string;
   estado: 'activo' | 'inactivo';
   fecha_creacion: string;
 }
@@ -40,7 +41,7 @@ export interface Client {
   fecha_registro: string;
 }
 
-export type PaymentMethod = 'efectivo' | 'qr' | 'transferencia';
+export type PaymentMethod = 'efectivo' | 'qr' | 'transferencia' | 'credito';
 
 export interface Sale {
   id: string;
@@ -51,6 +52,29 @@ export interface Sale {
   id_cliente?: string;
   id_vendedor: string;
   estado: 'completada' | 'anulada';
+  fecha_vencimiento?: string;   // Calculado automáticamente desde meses_credito
+  meses_credito?: number;        // Cantidad de cuotas para el crédito
+  monto_pagado?: number;
+  saldo_pendiente?: number;
+  estado_credito?: 'pendiente' | 'pagado' | 'parcial' | 'vencido';
+  tasa_interes?: number;        // Tasa de interés mensual en porcentaje (ej: 5.5 para 5.5%)
+  cuota_inicial?: number;       // Cuota inicial pagada al momento de la venta
+  monto_interes?: number;       // Monto calculado de interés acumulado (mes a mes)
+  interes_eximido?: boolean;     // Indica si el administrador eximió el interés
+  total_con_interes?: number;   // Total original + monto_interes (si no está eximido)
+}
+
+export interface CreditPayment {
+  id: string;
+  id_venta: string;
+  monto_pagado: number;
+  fecha_pago: string;
+  metodo_pago: 'efectivo' | 'qr' | 'transferencia';
+  numero_cuota?: number; // Número de cuota que se está pagando
+  observacion?: string;
+  id_usuario?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface SaleDetail {
@@ -60,6 +84,22 @@ export interface SaleDetail {
   cantidad: number;
   precio_unitario: number;
   subtotal: number;
+}
+
+export interface CashRegister {
+  id: string;
+  fecha: string;
+  hora_apertura: string;
+  hora_cierre?: string;
+  monto_inicial: number;
+  total_ventas: number;
+  efectivo_real?: number;
+  diferencia: number;
+  id_administrador: string;
+  observacion?: string;
+  estado: 'abierto' | 'cerrado';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface CartItem extends Product {

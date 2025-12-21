@@ -3,7 +3,30 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, onWheel, onKeyDown, ...props }, ref) => {
+    // Prevenir el comportamiento del spinner en campos numéricos
+    const handleWheel = React.useCallback(
+      (e: React.WheelEvent<HTMLInputElement>) => {
+        if (type === "number") {
+          // Prevenir que el scroll cambie el valor
+          e.currentTarget.blur();
+        }
+        onWheel?.(e);
+      },
+      [type, onWheel]
+    );
+
+    // Prevenir que las flechas arriba/abajo cambien el valor
+    const handleKeyDown = React.useCallback(
+      (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (type === "number" && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+          e.preventDefault();
+        }
+        onKeyDown?.(e);
+      },
+      [type, onKeyDown]
+    );
+
     return (
       <input
         type={type}
@@ -12,6 +35,8 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
           className,
         )}
         ref={ref}
+        onWheel={handleWheel}
+        onKeyDown={handleKeyDown}
         {...props}
       />
     );

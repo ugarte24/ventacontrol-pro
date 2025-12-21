@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { LogIn, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Eye, EyeOff, Loader } from 'lucide-react';
 
 export default function Login() {
   const [usuario, setUsuario] = useState('');
@@ -17,18 +17,29 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!usuario.trim() || !password.trim()) {
+      toast.error('Por favor completa todos los campos');
+      return;
+    }
+
     setIsLoading(true);
 
-    const success = await login(usuario, password);
-    
-    if (success) {
-      toast.success('¡Bienvenido a VentaPlus!');
-      navigate('/dashboard');
-    } else {
-      toast.error('Credenciales incorrectas');
+    try {
+      const success = await login(usuario.trim(), password);
+      
+      if (success) {
+        toast.success('¡Bienvenido a VentaPlus!');
+        navigate('/dashboard');
+      } else {
+        toast.error('Error al iniciar sesión');
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Error al iniciar sesión';
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
@@ -58,11 +69,12 @@ export default function Login() {
               <Input
                 id="usuario"
                 type="text"
-                placeholder="Tu nombre de usuario"
+                placeholder="Tu nombre de usuario o email"
                 value={usuario}
                 onChange={(e) => setUsuario(e.target.value)}
                 required
                 className="h-11"
+                disabled={isLoading}
               />
             </div>
 
@@ -77,11 +89,13 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className="h-11 pr-10"
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  disabled={isLoading}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -94,7 +108,10 @@ export default function Login() {
               disabled={isLoading}
             >
               {isLoading ? (
-                <span className="animate-pulse">Ingresando...</span>
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Ingresando...
+                </>
               ) : (
                 <>
                   <LogIn className="h-4 w-4" />
@@ -103,15 +120,6 @@ export default function Login() {
               )}
             </Button>
           </form>
-
-          {/* Demo credentials */}
-          <div className="mt-6 rounded-lg bg-muted/50 p-4">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Credenciales de prueba:</p>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p><strong>Admin:</strong> admin / admin123</p>
-              <p><strong>Vendedor:</strong> vendedor / vendedor123</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -17,12 +17,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
   const addItem = (product: Product) => {
+    // Validar que el producto esté activo
+    if (product.estado !== 'activo') {
+      throw new Error(`El producto "${product.nombre}" está inactivo`);
+    }
+
     setItems(current => {
       const existingItem = current.find(item => item.id === product.id);
+      const newQuantity = existingItem ? existingItem.cantidad + 1 : 1;
+
+      // Validar stock disponible
+      if (newQuantity > product.stock_actual) {
+        throw new Error(
+          `Stock insuficiente para "${product.nombre}". Stock disponible: ${product.stock_actual}`
+        );
+      }
+
       if (existingItem) {
         return current.map(item =>
           item.id === product.id
-            ? { ...item, cantidad: item.cantidad + 1, subtotal: (item.cantidad + 1) * item.precio_venta }
+            ? { ...item, cantidad: newQuantity, subtotal: newQuantity * item.precio_venta }
             : item
         );
       }
@@ -39,13 +53,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       removeItem(productId);
       return;
     }
-    setItems(current =>
-      current.map(item =>
-        item.id === productId
-          ? { ...item, cantidad: quantity, subtotal: quantity * item.precio_venta }
-          : item
-      )
-    );
+
+    setItems(current => {
+      const item = current.find(i => i.id === productId);
+      if (!item) return current;
+
+      // Validar stock disponible
+      if (quantity > item.stock_actual) {
+        throw new Error(
+          `Stock insuficiente para "${item.nombre}". Stock disponible: ${item.stock_actual}`
+        );
+      }
+
+      return current.map(i =>
+        i.id === productId
+          ? { ...i, cantidad: quantity, subtotal: quantity * i.precio_venta }
+          : i
+      );
+    });
   };
 
   const clearCart = () => {

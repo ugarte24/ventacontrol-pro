@@ -1,6 +1,6 @@
-import { Home, ShoppingCart, Package, BarChart3, Users, Settings, LogOut, Receipt } from 'lucide-react';
+import { Home, ShoppingCart, Package, BarChart3, Users, Settings, LogOut, Receipt, FolderTree, UserCircle, Wallet, ArrowLeftRight, DollarSign } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts';
 import {
   Sidebar,
   SidebarContent,
@@ -19,8 +19,13 @@ import { cn } from '@/lib/utils';
 const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: Home, roles: ['admin', 'vendedor'] },
   { title: 'Nueva Venta', url: '/ventas/nueva', icon: ShoppingCart, roles: ['admin', 'vendedor'] },
-  { title: 'Historial', url: '/ventas', icon: Receipt, roles: ['admin', 'vendedor'] },
+  { title: 'Historial de Ventas', url: '/ventas', icon: Receipt, roles: ['admin', 'vendedor'] },
   { title: 'Productos', url: '/productos', icon: Package, roles: ['admin'] },
+  { title: 'Categorías', url: '/categorias', icon: FolderTree, roles: ['admin'] },
+  { title: 'Clientes', url: '/clientes', icon: UserCircle, roles: ['admin', 'vendedor'] },
+  { title: 'Ventas a Crédito', url: '/creditos', icon: DollarSign, roles: ['admin', 'vendedor'] },
+  { title: 'Arqueo de Caja', url: '/arqueo', icon: Wallet, roles: ['admin'] },
+  { title: 'Movimientos Inventario', url: '/inventario/movimientos', icon: ArrowLeftRight, roles: ['admin'] },
   { title: 'Reportes', url: '/reportes', icon: BarChart3, roles: ['admin'] },
   { title: 'Usuarios', url: '/usuarios', icon: Users, roles: ['admin'] },
 ];
@@ -62,6 +67,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
                       to={item.url}
+                      end={item.url === '/ventas'}
                       className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
