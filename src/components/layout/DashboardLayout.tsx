@@ -26,8 +26,10 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <SidebarInset className="flex flex-1 flex-col">
-          <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 sm:gap-4 border-b bg-card px-3 sm:px-4 lg:px-6 overflow-hidden relative z-[60]">
-            <SidebarTrigger className="-ml-1 sm:-ml-2 flex-shrink-0 relative z-[70]" />
+          <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 sm:gap-4 border-b bg-card px-3 sm:px-4 lg:px-6 overflow-hidden relative z-[60]" style={{ isolation: 'isolate' }}>
+            <div className="relative z-[70]" style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
+              <SidebarTrigger className="-ml-1 sm:-ml-2 flex-shrink-0" />
+            </div>
             <Separator orientation="vertical" className="h-6 hidden sm:block flex-shrink-0" />
             {title && (
               <h1 className="font-display text-base sm:text-lg font-semibold text-foreground truncate flex-1 min-w-0">{title}</h1>

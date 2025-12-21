@@ -233,22 +233,41 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
   ({ className, onClick, ...props }, ref) => {
     const { toggleSidebar } = useSidebar();
 
+    const handleInteraction = React.useCallback((event: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onClick?.(event as React.MouseEvent<HTMLButtonElement>);
+      toggleSidebar();
+    }, [onClick, toggleSidebar]);
+
     return (
       <Button
         ref={ref}
         data-sidebar="trigger"
         variant="ghost"
         size="icon"
-        className={cn("h-7 w-7 relative z-50 pointer-events-auto", className)}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onClick?.(event);
-          toggleSidebar();
+        className={cn(
+          "relative z-[70] pointer-events-auto",
+          "h-11 w-11 sm:h-7 sm:w-7", // Área táctil más grande en móvil (44px)
+          "flex items-center justify-center",
+          className
+        )}
+        onClick={handleInteraction}
+        onTouchEnd={(e) => {
+          // Prevenir doble activación
+          e.preventDefault();
+          handleInteraction(e as any);
         }}
+        style={{
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+          minWidth: '44px',
+          minHeight: '44px',
+          WebkitTouchCallout: 'none',
+        } as React.CSSProperties}
         {...props}
       >
-        <PanelLeft />
+        <PanelLeft className="h-5 w-5 sm:h-4 sm:w-4" />
         <span className="sr-only">Toggle Sidebar</span>
       </Button>
     );
