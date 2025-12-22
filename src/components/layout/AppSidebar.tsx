@@ -15,6 +15,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
+import { APP_VERSION } from '@/lib/constants';
 
 const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: Home, roles: ['admin', 'vendedor'] },
@@ -106,6 +107,13 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        {!collapsed && (
+          <div className="mt-3 pt-3 border-t border-sidebar-border">
+            <p className="text-xs text-center text-muted-foreground">
+              Versión {APP_VERSION}
+            </p>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

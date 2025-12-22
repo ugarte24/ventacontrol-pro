@@ -203,6 +203,17 @@ ventacontrol-pro/
   - ✅ Eximir intereses (solo admin)
 - ✅ Gestión de movimientos de inventario
 - ✅ Arqueo de caja (apertura y cierre)
+- ✅ **Optimizaciones móviles:**
+  - ✅ Corrección de layout para pantallas pequeñas (eliminación de pantalla en blanco)
+  - ✅ Mejoras de compatibilidad con Android (área táctil aumentada, eventos touch)
+  - ✅ Corrección de apertura del menú lateral en móvil
+  - ✅ Viewport optimizado para diferentes tamaños de pantalla
+  - ✅ Favicon personalizado con logo V+ del sistema
+  - ✅ Apple Touch Icon y Web Manifest para PWA
+  - ✅ Theme color para personalización en móviles
+- ✅ **Mejoras de interfaz:**
+  - ✅ Versión del sistema visible en el sidebar
+  - ✅ Constantes centralizadas para fácil mantenimiento
 
 **UI/UX:**
 - ✅ Diseño responsive (móvil, tablet, desktop)
@@ -233,6 +244,14 @@ El sistema utiliza un diseño moderno tipo dashboard administrativo con:
 - **Diseño responsive completo** - Optimizado para móviles, tablets y desktop
 - Tablas con diseño consistente y espaciado uniforme
 - Componentes adaptativos según tamaño de pantalla
+- **Optimizaciones móviles avanzadas:**
+  - Layout corregido para pantallas pequeñas (sin pantalla en blanco)
+  - Área táctil aumentada para Android (44px mínimo)
+  - Eventos touch mejorados para mejor respuesta
+  - Viewport optimizado con soporte para `-webkit-fill-available`
+  - Favicon personalizado con logo V+ del sistema
+  - Soporte PWA con Web Manifest y Apple Touch Icon
+  - Versión del sistema visible en el sidebar para referencia rápida
 
 ## 📝 Scripts Disponibles
 
@@ -285,6 +304,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.1.0  
+**Versión**: 2.2.0  
 **Última actualización**: Diciembre 2024  
-**Estado**: Sistema completo con Ventas a Crédito - En producción
+**Estado**: Sistema completo con Ventas a Crédito y Optimizaciones Móviles - En producción
