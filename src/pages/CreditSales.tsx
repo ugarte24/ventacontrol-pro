@@ -43,6 +43,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   Search, 
   Calendar, 
@@ -55,10 +61,14 @@ import {
   Eye,
   Plus,
   Trash2,
-  MoreVertical
+  MoreVertical,
+  Printer
 } from 'lucide-react';
 import { useCreditSales } from '@/hooks/useCreditSales';
 import { useCreditPayments, useCreditPaymentsBySale, useCreateCreditPayment, useDeleteCreditPayment } from '@/hooks/useCreditPayments';
+import { useSaleDetails } from '@/hooks/useSales';
+import { printTicket } from '@/utils/print';
+import { salesService } from '@/services/sales.service';
 import { useAuth } from '@/contexts';
 import { Sale, CreditPayment } from '@/types';
 import { toast } from 'sonner';
@@ -121,6 +131,8 @@ export default function CreditSales() {
   const { data: paymentHistory = [] } = useCreditPaymentsBySale(selectedSale?.id || '');
   // Cargar todos los pagos para mostrar estado de cuotas en la tabla
   const { data: allPayments = [] } = useCreditPayments();
+  // Cargar detalles de la venta para mostrar productos
+  const { data: saleDetails = [] } = useSaleDetails(selectedSale?.id || '');
   const createPaymentMutation = useCreateCreditPayment();
   const deletePaymentMutation = useDeleteCreditPayment();
 
@@ -230,6 +242,38 @@ export default function CreditSales() {
         observacion: data.observacion || undefined,
         id_usuario: user.id,
       });
+
+      // Imprimir comprobante de pago
+      try {
+        const details = await salesService.getDetails(selectedSale.id);
+        const detailsWithProducts = details.map((detail) => {
+          const product = detail.productos?.nombre
+            ? { nombre: detail.productos.nombre, codigo: detail.productos.codigo || '' }
+            : undefined;
+          return { ...detail, producto: product };
+        });
+
+        const clienteNombre = selectedSale.clientes?.nombre || '';
+
+        printTicket({
+          sale: {
+            ...selectedSale,
+            metodo_pago: data.metodo_pago,
+          },
+          items: detailsWithProducts as any,
+          vendedor: user?.nombre || '',
+          cliente: clienteNombre,
+          creditPayment: {
+            numero_cuota: data.numero_cuota,
+            monto_pagado: data.monto_pagado,
+            fecha_pago: data.fecha_pago,
+            metodo_pago: data.metodo_pago,
+          },
+        });
+      } catch (error) {
+        console.error('Error al imprimir comprobante de pago:', error);
+      }
+
       toast.success('Pago registrado exitosamente');
       setShowPaymentDialog(false);
       setSelectedSale(null);
@@ -272,6 +316,80 @@ export default function CreditSales() {
       return `${day}/${month}/${year}`;
     } catch {
       return dateString;
+    }
+  };
+
+  // Imprimir comprobante de cuota inicial
+  const handlePrintInitialPayment = async () => {
+    if (!selectedSale) return;
+
+    try {
+      // Obtener detalles de la venta
+      const details = await salesService.getDetails(selectedSale.id);
+      const detailsWithProducts = details.map((detail: any) => {
+        const product = detail.productos?.nombre
+          ? { nombre: detail.productos.nombre, codigo: detail.productos.codigo || '' }
+          : undefined;
+        return { ...detail, producto: product };
+      });
+
+      const clienteNombre = selectedSale.clientes?.nombre || '';
+
+      printTicket({
+        sale: {
+          ...selectedSale,
+          metodo_pago: 'credito', // Mantener como crédito
+        },
+        items: detailsWithProducts as any,
+        vendedor: user?.nombre || '',
+        cliente: clienteNombre,
+        creditPayment: {
+          numero_cuota: 0, // Cuota inicial
+          monto_pagado: parseFloat((selectedSale.cuota_inicial || 0).toString()),
+          fecha_pago: selectedSale.fecha,
+          metodo_pago: 'efectivo', // Método de pago de la cuota inicial
+        },
+      });
+    } catch (error) {
+      console.error('Error al imprimir comprobante de cuota inicial:', error);
+      toast.error('Error al imprimir el comprobante');
+    }
+  };
+
+  // Imprimir comprobante de cuota
+  const handlePrintPayment = async (payment: CreditPayment) => {
+    if (!selectedSale) return;
+
+    try {
+      // Obtener detalles de la venta
+      const details = await salesService.getDetails(selectedSale.id);
+      const detailsWithProducts = details.map((detail: any) => {
+        const product = detail.productos?.nombre
+          ? { nombre: detail.productos.nombre, codigo: detail.productos.codigo || '' }
+          : undefined;
+        return { ...detail, producto: product };
+      });
+
+      const clienteNombre = selectedSale.clientes?.nombre || '';
+
+      printTicket({
+        sale: {
+          ...selectedSale,
+          metodo_pago: 'credito', // Mantener como crédito
+        },
+        items: detailsWithProducts as any,
+        vendedor: user?.nombre || '',
+        cliente: clienteNombre,
+        creditPayment: {
+          numero_cuota: payment.numero_cuota || undefined,
+          monto_pagado: payment.monto_pagado,
+          fecha_pago: payment.fecha_pago,
+          metodo_pago: payment.metodo_pago, // Método de pago de la cuota
+        },
+      });
+    } catch (error) {
+      console.error('Error al imprimir comprobante de pago:', error);
+      toast.error('Error al imprimir el comprobante');
     }
   };
 
@@ -564,64 +682,44 @@ export default function CreditSales() {
 
       {/* Diálogo de registro de pago */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md max-h-[90vh] !flex !flex-col p-0 overflow-hidden">
+          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
             <DialogTitle>Registrar Pago</DialogTitle>
             <DialogDescription>
               Registrar un pago para la venta seleccionada
             </DialogDescription>
           </DialogHeader>
           {selectedSale && (
-            <form onSubmit={paymentForm.handleSubmit(handleRegisterPayment)} className="space-y-4">
-              <div className="rounded-lg bg-muted p-4 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Cliente:</span>
-                  <span className="font-medium">{selectedSale.clientes?.nombre || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Venta:</span>
-                  <span className="font-medium">Bs. {parseFloat(selectedSale.total.toString()).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Pagado:</span>
-                  <span className="font-medium">Bs. {parseFloat((selectedSale.monto_pagado || 0).toString()).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between border-t pt-2">
-                  <span className="text-sm font-semibold">Saldo Pendiente:</span>
-                  <span className="font-bold text-yellow-600">
-                    Bs. {(() => {
-                      const totalConInteres = parseFloat((selectedSale.total_con_interes || selectedSale.total).toString());
-                      const montoPagado = parseFloat((selectedSale.monto_pagado || 0).toString());
-                      return (totalConInteres - montoPagado).toFixed(2);
-                    })()}
-                  </span>
-                </div>
-              </div>
+            <>
+              <div className="flex-1 min-h-0 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 120px)' }}>
+                <form onSubmit={paymentForm.handleSubmit(handleRegisterPayment)} className="space-y-4 px-6 py-4">
+                  <div className="rounded-lg bg-muted p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Cliente:</span>
+                      <span className="font-medium">{selectedSale.clientes?.nombre || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Total Venta:</span>
+                      <span className="font-medium">Bs. {parseFloat(selectedSale.total.toString()).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Pagado:</span>
+                      <span className="font-medium">Bs. {parseFloat((selectedSale.monto_pagado || 0).toString()).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2">
+                      <span className="text-sm font-semibold">Saldo Pendiente:</span>
+                      <span className="font-bold text-yellow-600">
+                        Bs. {(() => {
+                          const totalConInteres = parseFloat((selectedSale.total_con_interes || selectedSale.total).toString());
+                          const montoPagado = parseFloat((selectedSale.monto_pagado || 0).toString());
+                          return (totalConInteres - montoPagado).toFixed(2);
+                        })()}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Cuota a Pagar *</Label>
-                <Select
-                  value={paymentForm.watch('numero_cuota')?.toString() || ''}
-                  onValueChange={(value) => {
-                    const cuota = parseInt(value, 10);
-                    paymentForm.setValue('numero_cuota', cuota);
-                    
-                    // Calcular monto de la cuota seleccionada
-                    if (selectedSale) {
-                      const totalVenta = parseFloat(selectedSale.total.toString());
-                      const cuotaInicial = parseFloat((selectedSale.cuota_inicial || 0).toString());
-                      const interesTotal = parseFloat((selectedSale.monto_interes || 0).toString());
-                      const cuotas = selectedSale.meses_credito || 1;
-                      const basePorCuota = (totalVenta - cuotaInicial) / cuotas;
-                      const montoPorCuota = basePorCuota + interesTotal;
-                      paymentForm.setValue('monto_pagado', parseFloat(montoPorCuota.toFixed(2)));
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar cuota" />
-                  </SelectTrigger>
-                  <SelectContent>
+                  <div className="space-y-2">
+                    <Label>Cuota a Pagar *</Label>
                     {(() => {
                       if (!selectedSale) return null;
                       const cuotas = selectedSale.meses_credito || 1;
@@ -630,114 +728,89 @@ export default function CreditSales() {
                       const montoInteres = parseFloat((selectedSale.monto_interes || 0).toString());
                       const basePorCuota = (totalVenta - cuotaInicial) / cuotas;
                       const montoPorCuota = basePorCuota + montoInteres;
-                      const cuotasPagadas = allPayments
-                        .filter((p: CreditPayment) => p.id_venta === selectedSale.id && p.numero_cuota)
-                        .map((p: CreditPayment) => p.numero_cuota!);
+                      const numeroCuota = paymentForm.watch('numero_cuota') || 1;
                       
-                      return Array.from({ length: cuotas }, (_, i) => i + 1).map((cuota) => {
-                        const estaPagada = cuotasPagadas.includes(cuota);
-                        return (
-                          <SelectItem 
-                            key={cuota} 
-                            value={cuota.toString()}
-                            disabled={estaPagada}
-                          >
-                            Cuota {cuota} - Bs. {montoPorCuota.toFixed(2)} {estaPagada ? '(Pagada)' : ''}
-                          </SelectItem>
-                        );
-                      });
+                      return (
+                        <Input
+                          value={`Cuota ${numeroCuota} - Bs. ${montoPorCuota.toFixed(2)}`}
+                          readOnly
+                          tabIndex={-1}
+                          onFocus={(e) => e.target.blur()}
+                          onClick={(e) => e.target.blur()}
+                          className="bg-muted cursor-default select-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0"
+                        />
+                      );
                     })()}
-                  </SelectContent>
-                </Select>
-                {paymentForm.formState.errors.numero_cuota && (
-                  <p className="text-sm text-destructive">
-                    {paymentForm.formState.errors.numero_cuota.message}
-                  </p>
-                )}
+                    {paymentForm.formState.errors.numero_cuota && (
+                      <p className="text-sm text-destructive">
+                        {paymentForm.formState.errors.numero_cuota.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Fecha de Pago *</Label>
+                      <DatePicker
+                        value={paymentForm.watch('fecha_pago') || undefined}
+                        onChange={(value) => {
+                          paymentForm.setValue('fecha_pago', value);
+                        }}
+                        min={(() => {
+                          // Fecha mínima: hace 1 año (para permitir pagos pasados)
+                          const fechaMin = new Date();
+                          fechaMin.setFullYear(fechaMin.getFullYear() - 1);
+                          const año = fechaMin.getFullYear();
+                          const mes = String(fechaMin.getMonth() + 1).padStart(2, '0');
+                          const dia = String(fechaMin.getDate()).padStart(2, '0');
+                          return `${año}-${mes}-${dia}`;
+                        })()}
+                        max={(() => {
+                          // Fecha máxima: hoy (bloquear fechas futuras)
+                          const hoy = new Date();
+                          const año = hoy.getFullYear();
+                          const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+                          const dia = String(hoy.getDate()).padStart(2, '0');
+                          return `${año}-${mes}-${dia}`;
+                        })()}
+                        placeholder="Seleccionar fecha de pago"
+                      />
+                      {paymentForm.formState.errors.fecha_pago && (
+                        <p className="text-sm text-destructive">
+                          {paymentForm.formState.errors.fecha_pago.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Método de Pago *</Label>
+                      <Select
+                        value={paymentForm.watch('metodo_pago')}
+                        onValueChange={(value: 'efectivo' | 'qr' | 'transferencia') => paymentForm.setValue('metodo_pago', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="efectivo">Efectivo</SelectItem>
+                          <SelectItem value="qr">QR</SelectItem>
+                          <SelectItem value="transferencia">Transferencia</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Observación</Label>
+                    <Textarea
+                      {...paymentForm.register('observacion')}
+                      placeholder="Observaciones adicionales (opcional)"
+                      rows={3}
+                    />
+                  </div>
+                </form>
               </div>
-
-              <div className="space-y-2">
-                <Label>Monto a Pagar *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  {...paymentForm.register('monto_pagado', { valueAsNumber: true })}
-                  readOnly
-                  className="bg-muted"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Monto calculado automáticamente según la cuota seleccionada
-                </p>
-                {paymentForm.formState.errors.monto_pagado && (
-                  <p className="text-sm text-destructive">
-                    {paymentForm.formState.errors.monto_pagado.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Fecha de Pago *</Label>
-                  <DatePicker
-                    value={paymentForm.watch('fecha_pago') || undefined}
-                    onChange={(value) => {
-                      paymentForm.setValue('fecha_pago', value);
-                    }}
-                    min={(() => {
-                      // Fecha mínima: hace 1 año (para permitir pagos pasados)
-                      const fechaMin = new Date();
-                      fechaMin.setFullYear(fechaMin.getFullYear() - 1);
-                      const año = fechaMin.getFullYear();
-                      const mes = String(fechaMin.getMonth() + 1).padStart(2, '0');
-                      const dia = String(fechaMin.getDate()).padStart(2, '0');
-                      return `${año}-${mes}-${dia}`;
-                    })()}
-                    max={(() => {
-                      // Fecha máxima: hoy (bloquear fechas futuras)
-                      const hoy = new Date();
-                      const año = hoy.getFullYear();
-                      const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-                      const dia = String(hoy.getDate()).padStart(2, '0');
-                      return `${año}-${mes}-${dia}`;
-                    })()}
-                    placeholder="Seleccionar fecha de pago"
-                  />
-                  {paymentForm.formState.errors.fecha_pago && (
-                    <p className="text-sm text-destructive">
-                      {paymentForm.formState.errors.fecha_pago.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Método de Pago *</Label>
-                  <Select
-                    value={paymentForm.watch('metodo_pago')}
-                    onValueChange={(value: 'efectivo' | 'qr' | 'transferencia') => paymentForm.setValue('metodo_pago', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="efectivo">Efectivo</SelectItem>
-                      <SelectItem value="qr">QR</SelectItem>
-                      <SelectItem value="transferencia">Transferencia</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Observación</Label>
-                <Textarea
-                  {...paymentForm.register('observacion')}
-                  placeholder="Observaciones adicionales (opcional)"
-                  rows={3}
-                />
-              </div>
-
-              <DialogFooter>
+              <DialogFooter className="flex-shrink-0 px-6 pb-6 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -745,7 +818,7 @@ export default function CreditSales() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={createPaymentMutation.isPending}>
+                <Button type="button" onClick={paymentForm.handleSubmit(handleRegisterPayment)} disabled={createPaymentMutation.isPending}>
                   {createPaymentMutation.isPending ? (
                     <>
                       <Loader className="mr-2 h-4 w-4 animate-spin" />
@@ -756,22 +829,23 @@ export default function CreditSales() {
                   )}
                 </Button>
               </DialogFooter>
-            </form>
+            </>
           )}
         </DialogContent>
       </Dialog>
 
       {/* Diálogo de historial de pagos */}
       <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] !flex !flex-col p-0 [&>button]:right-4 [&>button]:top-4 overflow-hidden">
+          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
             <DialogTitle>Historial de Pagos</DialogTitle>
             <DialogDescription>
               Historial de pagos para la venta seleccionada
             </DialogDescription>
           </DialogHeader>
           {selectedSale && (
-            <div className="space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 120px)' }}>
+              <div className="space-y-4 px-6 py-4">
               <div className="rounded-lg bg-muted p-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Cliente:</span>
@@ -804,6 +878,54 @@ export default function CreditSales() {
                 </div>
               </div>
 
+              {/* Sección de productos */}
+              {saleDetails.length > 0 && (
+                <div className="rounded-lg border">
+                  <div className="p-4 border-b bg-muted/50">
+                    <h3 className="font-semibold">Productos de la Venta</h3>
+                  </div>
+                  <div className="p-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Producto</TableHead>
+                          <TableHead className="text-center">Cantidad</TableHead>
+                          <TableHead className="text-right">Precio Unit.</TableHead>
+                          <TableHead className="text-right">Subtotal</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {saleDetails.map((detail: any, index: number) => {
+                          // Manejar productos que pueden venir como objeto o null
+                          const producto = detail.productos && typeof detail.productos === 'object' && !Array.isArray(detail.productos)
+                            ? detail.productos
+                            : null;
+                          const cantidad = detail.cantidad;
+                          const precio = detail.precio_unitario;
+                          const subtotal = detail.subtotal || (cantidad * precio);
+                          
+                          return (
+                            <TableRow key={detail.id || index}>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium">{producto?.nombre || 'Producto sin nombre'}</p>
+                                  {producto?.codigo && (
+                                    <p className="text-xs text-muted-foreground">Código: {producto.codigo}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">{cantidad}</TableCell>
+                              <TableCell className="text-right">Bs. {precio.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-medium">Bs. {subtotal.toFixed(2)}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
               {(() => {
                 const cuotaInicial = selectedSale.cuota_inicial !== null && selectedSale.cuota_inicial !== undefined 
                   ? parseFloat(selectedSale.cuota_inicial.toString()) 
@@ -814,18 +936,19 @@ export default function CreditSales() {
                   </div>
                 ) : (
                   <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Cuota</TableHead>
-                          <TableHead>Fecha</TableHead>
-                          <TableHead>Monto</TableHead>
-                          <TableHead>Método</TableHead>
-                          <TableHead>Observación</TableHead>
-                          <TableHead className="text-right">Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                    <TooltipProvider>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Cuota</TableHead>
+                            <TableHead>Fecha</TableHead>
+                            <TableHead>Monto</TableHead>
+                            <TableHead>Método</TableHead>
+                            <TableHead>Observación</TableHead>
+                            <TableHead className="text-right w-[100px]">Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                         {/* Mostrar cuota inicial si existe */}
                         {selectedSale.cuota_inicial != null && parseFloat((selectedSale.cuota_inicial || 0).toString()) > 0 && (
                           <TableRow>
@@ -845,7 +968,21 @@ export default function CreditSales() {
                               Pago realizado al momento de la venta
                             </TableCell>
                             <TableCell className="text-right">
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={handlePrintInitialPayment}
+                                    className="h-8 w-8"
+                                  >
+                                    <Printer className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Imprimir comprobante</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </TableCell>
                           </TableRow>
                         )}
@@ -872,23 +1009,48 @@ export default function CreditSales() {
                               {payment.observacion || '-'}
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenDeleteDialog(payment)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Eliminar
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handlePrintPayment(payment)}
+                                      className="h-8 w-8 text-primary hover:text-primary"
+                                    >
+                                      <Printer className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Imprimir comprobante</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleOpenDeleteDialog(payment)}
+                                      className="h-8 w-8 text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Eliminar cuota</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
+                    </TooltipProvider>
                   </div>
                 );
               })()}
+              </div>
             </div>
           )}
         </DialogContent>

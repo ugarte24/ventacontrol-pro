@@ -207,6 +207,56 @@ En el negocio no existe un control digital de inventarios, clientes ni ventas. L
 }
 ```
 
+### 🔧 SERVICIOS
+
+```typescript
+{
+  id: string;
+  nombre: string;                  // Ej: "Recarga", "Agente BCP"
+  descripcion?: string;
+  saldo_actual: number;            // Saldo disponible actual
+  estado: 'activo' | 'inactivo';
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### 📝 MOVIMIENTOS_SERVICIOS
+
+```typescript
+{
+  id: string;
+  id_servicio: string;
+  tipo: 'aumento' | 'ajuste';     // Tipo de movimiento
+  monto: number;                   // Monto del movimiento (siempre positivo)
+  saldo_anterior: number;          // Saldo antes del movimiento
+  saldo_nuevo: number;             // Saldo después del movimiento
+  fecha: string;                   // YYYY-MM-DD
+  hora: string;                    // HH:mm
+  id_usuario: string;              // Usuario que realizó el movimiento
+  observacion?: string;
+  created_at: string;
+}
+```
+
+### 📋 REGISTROS_SERVICIOS
+
+```typescript
+{
+  id: string;
+  id_servicio: string;
+  fecha: string;                   // YYYY-MM-DD (único por servicio y fecha)
+  saldo_inicial: number;           // Saldo al inicio del día
+  saldo_final: number;             // Saldo al final del día
+  monto_transaccionado: number;    // Calculado: saldo_final - saldo_inicial - monto_aumentado
+  monto_aumentado: number;         // Suma de todos los aumentos del día
+  id_usuario: string;              // Usuario que registró
+  observacion?: string;
+  created_at: string;
+  updated_at: string;
+}
+```
+
 ### 📈 REPORTES (AUTOGENERADOS)
 
 Los reportes se generan dinámicamente a partir de:
@@ -259,6 +309,12 @@ Los reportes se generan dinámicamente a partir de:
 - Ver alertas de stock bajo
 - Gestionar compras
 
+**Gestión de Servicios:**
+- CRUD completo de servicios (crear, editar, eliminar)
+- Ver todos los servicios y sus saldos
+- Ver historial completo de movimientos y registros
+- Gestionar aumentos de saldo
+
 ### 🧾 VENDEDOR – Acceso Limitado
 
 **Ventas:**
@@ -271,6 +327,13 @@ Los reportes se generan dinámicamente a partir de:
 **Clientes:**
 - Registrar nuevos clientes
 - Ver clientes existentes
+
+**Servicios:**
+- Ver servicios activos y sus saldos
+- Aumentar saldo de servicios
+- Registrar saldo inicial y final del día (cierre diario)
+- Ver historial de movimientos y registros
+- **No puede**: crear, editar o eliminar servicios
 
 **Productos:**
 - Ver productos disponibles
@@ -369,6 +432,13 @@ Los reportes se generan dinámicamente a partir de:
   - ✅ Eliminación de cuotas pagadas
   - ✅ Gestión de estado de crédito (pendiente, parcial, pagado, vencido)
   - ✅ Eximir intereses (solo administrador)
+- ✅ **Sistema de gestión de servicios:**
+  - ✅ CRUD completo de servicios (solo admin)
+  - ✅ Aumento de saldo de servicios con historial
+  - ✅ Registro diario de saldo inicial y final
+  - ✅ Cálculo automático de monto transaccionado y aumentado
+  - ✅ Historial completo de movimientos y registros
+  - ✅ Visualización de servicios en Dashboard
 - ✅ Gestión de movimientos de inventario
 - ✅ Arqueo de caja (apertura y cierre)
 - ✅ Exportación de reportes a PDF y Excel
@@ -384,6 +454,34 @@ Los reportes se generan dinámicamente a partir de:
 - ✅ **Mejoras de interfaz:**
   - ✅ Versión del sistema visible en el sidebar
   - ✅ Constantes centralizadas para fácil mantenimiento
+- ✅ **Paginación en listados grandes:**
+  - ✅ Paginación implementada en todas las tablas del sistema
+  - ✅ 20 elementos por página en todas las tablas
+  - ✅ Controles de navegación (anterior/siguiente) con números de página
+  - ✅ Reseteo automático de página cuando cambian los datos o filtros
+  - ✅ Implementado en: Historial de Ventas, Ventas a Crédito, Productos, Clientes, Usuarios, Categorías, Servicios, Registro de Servicios, Historial de Servicios, Movimientos de Inventario, Historial de Arqueos
+- ✅ **Impresión de tickets mejorada:**
+  - ✅ Impresión de tickets para ventas normales
+  - ✅ Impresión de tickets para ventas a crédito con cuota inicial
+  - ✅ Impresión de comprobantes de pago para cuotas de crédito
+  - ✅ Botón de impresión directo en cada fila del historial de ventas
+  - ✅ Botón de impresión en diálogo de detalles de venta
+  - ✅ Formato optimizado para impresoras térmicas (80mm)
+  - ✅ Diseño diferenciado para ventas a crédito y pagos
+- ✅ **Diseño de reportes profesional:**
+  - ✅ Encabezado con logo y nombre del sistema
+  - ✅ Información de usuario conectado y fecha del reporte
+  - ✅ Título del reporte centrado en verde
+  - ✅ Tabla centrada con encabezados en color teal oscuro
+  - ✅ Formato consistente en todos los reportes exportados (PDF)
+- ✅ **Reportes específicos de ventas a crédito:**
+  - ✅ Pestañas para separar reportes generales de reportes de crédito
+  - ✅ Estadísticas específicas: Total ventas, Pendiente por cobrar, Total cobrado, Créditos activos, Pagados, Parciales, Pendientes
+  - ✅ Gráficos de distribución por estado (pendiente, parcial, pagado, vencido)
+  - ✅ Gráfico de tendencia de cobros por día
+  - ✅ Top 5 clientes con más créditos
+  - ✅ Exportación a PDF/Excel con información detallada de cada crédito (cliente, productos, intereses, pagos, saldo pendiente)
+  - ✅ Diseño optimizado de columnas para que todas quepan en el ancho de página
 
 **Estado Técnico:**
 - Frontend completo y funcional
@@ -399,13 +497,9 @@ Los reportes se generan dinámicamente a partir de:
 ### 🔜 v3.0 - Pendiente de Implementación 
 
 **Funcionalidades Futuras:**
-- 🔜 Impresión de tickets
-- 🔜 Paginación en listados grandes
-- 🔜 Notificaciones push
 - 🔜 Backup automático
 - 🔜 Historial completo de movimientos de inventario con interfaz mejorada
 - 🔜 Notificaciones de vencimiento de créditos
-- 🔜 Reportes específicos de ventas a crédito
 
 **Mejoras Futuras:**
 - 🔜 Testing (unitario, integración, E2E)
@@ -464,7 +558,6 @@ Los reportes se generan dinámicamente a partir de:
 
 - Integración con sistemas de facturación
 - App móvil para vendedores
-- Notificaciones push
 - Integración con proveedores
 - Sistema de promociones y descuentos
 - Múltiples sucursales
@@ -473,9 +566,9 @@ Los reportes se generan dinámicamente a partir de:
 
 ---
 
-**Versión del PRD:** 2.3  
+**Versión del PRD:** 2.6  
 **Última actualización:** Diciembre 2024  
-**Estado del Proyecto:** v2.2.0 - Sistema Completo con Ventas a Crédito y Optimizaciones Móviles
+**Estado del Proyecto:** v2.5.0 - Sistema Completo con Reportes Específicos de Ventas a Crédito
 
 ### 📝 Notas Técnicas Importantes
 

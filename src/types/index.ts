@@ -107,6 +107,64 @@ export interface CartItem extends Product {
   subtotal: number;
 }
 
+// Servicios
+export interface Servicio {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  saldo_actual: number;
+  estado: 'activo' | 'inactivo';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MovimientoServicio {
+  id: string;
+  id_servicio: string;
+  tipo: 'aumento' | 'ajuste';
+  monto: number;
+  saldo_anterior: number;
+  saldo_nuevo: number;
+  fecha: string;
+  hora: string;
+  id_usuario: string;
+  observacion?: string;
+  created_at?: string;
+}
+
+export interface RegistroServicio {
+  id: string;
+  id_servicio: string;
+  fecha: string;
+  saldo_inicial: number;
+  saldo_final: number;
+  monto_transaccionado: number;
+  monto_aumentado: number;
+  id_usuario: string;
+  observacion?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateMovimientoServicioData {
+  id_servicio: string;
+  tipo?: 'aumento' | 'ajuste';
+  monto: number;
+  fecha: string;
+  hora: string;
+  id_usuario: string;
+  observacion?: string;
+}
+
+export interface CreateRegistroServicioData {
+  id_servicio: string;
+  fecha: string;
+  saldo_inicial: number;
+  saldo_final: number;
+  id_usuario: string;
+  observacion?: string;
+}
+
 // Mock data for MVP
 export const mockProducts: Product[] = [
   {

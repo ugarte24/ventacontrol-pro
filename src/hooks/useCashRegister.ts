@@ -41,6 +41,22 @@ export function useTodayTotalSales() {
   });
 }
 
+export function useTodaySalesByMethod() {
+  return useQuery({
+    queryKey: ['todaySalesByMethod'],
+    queryFn: () => cashRegisterService.getTodaySalesByMethod(),
+    refetchInterval: 30000, // Refrescar cada 30 segundos
+  });
+}
+
+export function useTodayCreditReceipts() {
+  return useQuery({
+    queryKey: ['todayCreditReceipts'],
+    queryFn: () => cashRegisterService.getTodayCreditReceipts(),
+    refetchInterval: 30000, // Refrescar cada 30 segundos
+  });
+}
+
 export function useOpenCashRegister() {
   const queryClient = useQueryClient();
 

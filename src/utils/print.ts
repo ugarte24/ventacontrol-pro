@@ -5,6 +5,12 @@ export interface PrintTicketData {
   items: (SaleDetail & { producto?: { nombre: string; codigo: string } })[] | CartItem[];
   vendedor?: string;
   cliente?: string;
+  creditPayment?: {
+    numero_cuota?: number;
+    monto_pagado: number;
+    fecha_pago: string;
+    metodo_pago: string;
+  };
 }
 
 /**
@@ -31,6 +37,7 @@ export function printTicket(data: PrintTicketData) {
       'efectivo': 'Efectivo',
       'qr': 'QR',
       'transferencia': 'Transferencia',
+      'credito': 'Crédito',
     };
     return labels[method] || method;
   };
@@ -179,6 +186,39 @@ export function printTicket(data: PrintTicketData) {
         ` : ''}
       </div>
       
+      ${data.creditPayment ? `
+      <div class="info" style="margin-top:8px;">
+        <div class="info-row">
+          <span>Pago de Crédito</span>
+          <span>${data.creditPayment.numero_cuota === 0 
+            ? 'Cuota Inicial' 
+            : `Cuota ${data.creditPayment.numero_cuota ?? '-'}${data.sale.meses_credito ? `/${data.sale.meses_credito}` : ''}`}</span>
+        </div>
+        <div class="info-row">
+          <span>Monto pagado:</span>
+          <span>Bs. ${Number(data.creditPayment.monto_pagado).toFixed(2)}</span>
+        </div>
+        <div class="info-row">
+          <span>Método de pago:</span>
+          <span>Crédito</span>
+        </div>
+        <div class="info-row">
+          <span>Fecha pago:</span>
+          <span>${data.creditPayment.fecha_pago}</span>
+        </div>
+      </div>
+      ` : ''}
+
+      ${data.sale.metodo_pago === 'credito' && !data.creditPayment ? `
+      <div class="info" style="margin-top:8px;">
+        <div class="info-row">
+          <span>Venta a Crédito</span>
+          <span>${data.sale.cuota_inicial ? `Cuota inicial: Bs. ${Number(data.sale.cuota_inicial).toFixed(2)}` : ''}</span>
+        </div>
+      </div>
+      ` : ''}
+
+      ${!data.creditPayment ? `
       <div class="divider">
         <div class="items-header">
           <span>PRODUCTO</span>
@@ -210,7 +250,25 @@ export function printTicket(data: PrintTicketData) {
       </div>
       
       <div class="divider"></div>
+      ` : `
+      <div class="info" style="margin-top:4px; margin-bottom:4px;">
+        ${data.items.map((item) => {
+          const nombre = 'producto' in item && item.producto 
+            ? item.producto.nombre 
+            : 'nombre' in item 
+            ? item.nombre 
+            : 'N/A';
+          return `
+            <div class="info-row">
+              <span>Producto:</span>
+              <span>${nombre}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      `}
       
+      ${!data.creditPayment ? `
       <div class="total-section">
         <div class="total-row">
           <span>Subtotal:</span>
@@ -225,6 +283,23 @@ export function printTicket(data: PrintTicketData) {
           <span style="font-weight: bold;">${getPaymentMethodLabel(data.sale.metodo_pago)}</span>
         </div>
       </div>
+      ` : `
+      <div class="total-section">
+        <div class="total-final">
+          <span>MONTO PAGADO:</span>
+          <span>Bs. ${Number(data.creditPayment.monto_pagado).toFixed(2)}</span>
+        </div>
+        <div class="total-row" style="margin-top: 5px; font-size: 11px;">
+          <span>${data.creditPayment.numero_cuota === 0 
+            ? 'Cuota Inicial' 
+            : `Cuota ${data.creditPayment.numero_cuota ?? '-'}${data.sale.meses_credito ? `/${data.sale.meses_credito}` : ''}`}</span>
+        </div>
+        <div class="total-row" style="font-size: 11px;">
+          <span>Método de pago:</span>
+          <span style="font-weight: bold;">Crédito</span>
+        </div>
+      </div>
+      `}
       
       <div class="footer">
         <p>¡Gracias por su compra!</p>

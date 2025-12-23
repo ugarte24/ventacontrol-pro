@@ -1,13 +1,14 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/ui/stat-card';
 import { useAuth } from '@/contexts';
-import { DollarSign, ShoppingBag, TrendingUp, Package, Clock, AlertTriangle, Bell, BellOff } from 'lucide-react';
+import { DollarSign, ShoppingBag, TrendingUp, Package, Clock, AlertTriangle, Bell, BellOff, Wrench } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useTodaySales, useSales } from '@/hooks/useSales';
 import { useLowStockProducts } from '@/hooks/useProducts';
+import { useServicios } from '@/hooks/useServicios';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useState, useEffect } from 'react';
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const { data: salesToday = [], isLoading: loadingSales } = useTodaySales();
   const { data: allSales = [] } = useSales(); // Para mostrar últimas ventas si no hay ventas hoy
   const { data: productosStockBajo = [], isLoading: loadingStock } = useLowStockProducts();
+  const { data: servicios = [], isLoading: loadingServicios } = useServicios();
   const { requestPermission, hasPermission, isSupported, isEnabled, enable, disable } = useNotifications();
   const [notificationEnabled, setNotificationEnabled] = useState(false);
 
@@ -74,7 +76,7 @@ export default function Dashboard() {
   };
 
   return (
-    <DashboardLayout title="Dashboard">
+    <DashboardLayout title="Panel de Control">
       <div className="space-y-4 sm:space-y-6">
         {/* Welcome Section */}
         <div className="animate-slide-up flex items-center justify-between flex-wrap gap-4">
@@ -289,6 +291,52 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Servicios */}
+        {servicios && servicios.length > 0 && (
+          <Card className="animate-fade-in">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2 font-display text-lg">
+                <Wrench className="h-5 w-5" />
+                Servicios
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/servicios')}>
+                Ver todos
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {loadingServicios ? (
+                <div className="space-y-4">
+                  {[1, 2].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {servicios.slice(0, 6).map((servicio) => (
+                    <div 
+                      key={servicio.id}
+                      className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-muted/50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate">{servicio.nombre}</p>
+                        {servicio.descripcion && (
+                          <p className="text-sm text-muted-foreground truncate">{servicio.descripcion}</p>
+                        )}
+                      </div>
+                      <div className="ml-4 text-right flex-shrink-0">
+                        <p className="font-semibold text-foreground">Bs. {servicio.saldo_actual.toFixed(2)}</p>
+                        <Badge variant={servicio.estado === 'activo' ? 'default' : 'secondary'} className="mt-1">
+                          {servicio.estado}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Low Stock Alert */}
         {user?.rol === 'admin' && !loadingStock && productosStockBajo.length > 0 && (

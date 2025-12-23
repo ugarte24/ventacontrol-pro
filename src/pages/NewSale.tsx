@@ -250,11 +250,31 @@ export default function NewSale() {
         };
       });
 
-      printTicket({
-        sale: createdSale,
-        items: detailsWithProducts,
-        vendedor: vendedorName,
-      });
+      // Si es venta a crédito con cuota inicial, imprimir como comprobante de cuota inicial
+      if (createdSale.metodo_pago === 'credito' && createdSale.cuota_inicial && createdSale.cuota_inicial > 0) {
+        const clienteNombre = selectedClient?.nombre || '';
+        printTicket({
+          sale: {
+            ...createdSale,
+            metodo_pago: 'credito', // Mantener como crédito
+          },
+          items: detailsWithProducts,
+          vendedor: vendedorName,
+          cliente: clienteNombre,
+          creditPayment: {
+            numero_cuota: 0, // Cuota inicial
+            monto_pagado: parseFloat((createdSale.cuota_inicial || 0).toString()),
+            fecha_pago: createdSale.fecha,
+            metodo_pago: 'efectivo', // Método de pago de la cuota inicial
+          },
+        });
+      } else {
+        printTicket({
+          sale: createdSale,
+          items: detailsWithProducts,
+          vendedor: vendedorName,
+        });
+      }
     } catch (error: any) {
       toast.error(error.message || 'Error al imprimir ticket');
     }
@@ -885,36 +905,58 @@ export default function NewSale() {
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
-              <CheckCircle className="h-8 w-8 text-success" />
-            </div>
-            <DialogTitle className="font-display text-2xl">¡Venta Completada!</DialogTitle>
-            <DialogDescription>
-              La venta se ha registrado exitosamente en el sistema
-            </DialogDescription>
-          </DialogHeader>
+      <DialogHeader className="text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
+          <CheckCircle className="h-8 w-8 text-success" />
+        </div>
+        <DialogTitle className="font-display text-2xl">
+          {selectedPayment === 'credito' ? 'Venta a Crédito Registrada' : '¡Venta Completada!'}
+        </DialogTitle>
+        <DialogDescription>
+          {selectedPayment === 'credito'
+            ? 'Venta a crédito creada. Registra pagos desde el módulo de Créditos.'
+            : 'La venta se ha registrado exitosamente en el sistema'}
+        </DialogDescription>
+      </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="rounded-lg bg-muted p-4 text-center">
-              <p className="text-sm text-muted-foreground">Total cobrado</p>
+            <div className="rounded-lg bg-muted p-4 text-center space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {selectedPayment === 'credito' ? 'Total de la venta' : 'Total cobrado'}
+              </p>
               <p className="font-display text-3xl font-bold text-foreground">
                 Bs. {saleTotal.toFixed(2)}
               </p>
-              <Badge className="mt-2 capitalize">{selectedPayment}</Badge>
+              <Badge className="mt-2 capitalize">{selectedPayment === 'credito' ? 'Crédito' : selectedPayment}</Badge>
+              {selectedPayment === 'credito' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left text-sm bg-background rounded-lg p-3 border">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Cuota inicial</p>
+                    <p className="font-semibold">Bs. {cuotaInicial.toFixed(2)}</p>
+                  </div>
+                  <div className="sm:text-right">
+                    <p className="text-xs text-muted-foreground">Por cobrar</p>
+                    <p className="font-semibold">
+                      Bs. {(saleTotal - cuotaInicial).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="text-center text-sm text-muted-foreground">
               <p>{saleItems.length} productos • {saleItemCount} unidades</p>
             </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button 
-              variant="outline" 
-              className="w-full h-11 gap-2" 
-              onClick={handlePrintTicket}
-            >
-              <Printer className="h-4 w-4" />
-              Imprimir Ticket
-            </Button>
+            {(selectedPayment !== 'credito' || (selectedPayment === 'credito' && cuotaInicial > 0)) && (
+              <Button 
+                variant="outline" 
+                className="w-full h-11 gap-2" 
+                onClick={handlePrintTicket}
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir Ticket
+              </Button>
+            )}
             <Button className="w-full h-11" onClick={handleNewSale}>
               Nueva Venta
             </Button>

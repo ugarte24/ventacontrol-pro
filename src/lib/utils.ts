@@ -42,3 +42,14 @@ export function getLocalDateISO(): string {
   const dia = String(ahora.getDate()).padStart(2, '0');
   return `${año}-${mes}-${dia}`;
 }
+
+/**
+ * Obtiene solo la hora actual en hora local del cliente (navegador)
+ * @returns String en formato HH:mm en hora local
+ */
+export function getLocalTimeISO(): string {
+  const ahora = new Date();
+  const horas = String(ahora.getHours()).padStart(2, '0');
+  const minutos = String(ahora.getMinutes()).padStart(2, '0');
+  return `${horas}:${minutos}`;
+}

@@ -203,7 +203,7 @@ export const salesService = {
   async getDetails(id_venta: string): Promise<SaleDetail[]> {
     const { data, error } = await supabase
       .from('detalle_venta')
-      .select('*')
+      .select('*, productos(*)')
       .eq('id_venta', id_venta)
       .order('created_at');
 

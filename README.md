@@ -6,11 +6,14 @@ Sistema de gestión de ventas e inventario diseñado para reemplazar el registro
 
 - **Punto de Venta (POS)**: Registro rápido de ventas con múltiples métodos de pago
 - **Ventas a Crédito**: Sistema completo de ventas a crédito con gestión de pagos por cuotas
+- **Gestión de Servicios**: Control de servicios (Recarga, Agente BCP, etc.) con registro de saldos y transacciones
 - **Gestión de Productos**: Control de inventario con alertas de stock bajo
 - **Dashboard Administrativo**: Estadísticas y métricas en tiempo real
 - **Gestión de Usuarios**: Sistema de roles (Administrador/Vendedor) con permisos diferenciados
 - **Historial de Ventas**: Registro completo de todas las transacciones
-- **Reportes**: Análisis de ventas y productos más vendidos con exportación a PDF/Excel
+- **Reportes Profesionales**: Análisis de ventas y productos más vendidos con exportación a PDF/Excel con diseño profesional
+- **Impresión de Tickets**: Sistema completo de impresión de tickets y comprobantes de pago
+- **Paginación**: Navegación eficiente en todas las tablas del sistema
 
 ## 🛠️ Stack Tecnológico
 
@@ -140,6 +143,9 @@ ventacontrol-pro/
 - `/ventas/nueva` - Registro de nueva venta (POS)
 - `/ventas` - Historial de ventas con filtros
 - `/creditos` - Gestión de ventas a crédito y pagos
+- `/servicios` - Gestión de servicios (CRUD completo, solo admin)
+- `/servicios/registro` - Registro diario de servicios (saldo inicial/final)
+- `/servicios/historial` - Historial de movimientos y registros de servicios
 - `/productos` - Gestión de productos (CRUD completo)
 - `/categorias` - Gestión de categorías (CRUD completo, solo admin)
 - `/reportes` - Reportes y análisis con gráficos
@@ -163,7 +169,10 @@ ventacontrol-pro/
 - Ver stock disponible
 - Registrar clientes
 - Registrar pagos de crédito
-- **No puede**: gestionar productos, usuarios, ver reportes generales o eximir intereses
+- Registrar servicios diarios (saldo inicial/final)
+- Aumentar saldo de servicios
+- Ver historial de servicios
+- **No puede**: gestionar productos, usuarios, crear/editar/eliminar servicios, ver reportes generales o eximir intereses
 
 ## 📊 Estado Actual del Proyecto
 
@@ -203,6 +212,13 @@ ventacontrol-pro/
   - ✅ Eximir intereses (solo admin)
 - ✅ Gestión de movimientos de inventario
 - ✅ Arqueo de caja (apertura y cierre)
+- ✅ **Sistema de gestión de servicios:**
+  - ✅ CRUD completo de servicios (solo admin)
+  - ✅ Aumento de saldo de servicios con historial
+  - ✅ Registro diario de saldo inicial y final
+  - ✅ Cálculo automático de monto transaccionado y aumentado
+  - ✅ Historial completo de movimientos y registros
+  - ✅ Visualización de servicios en Dashboard
 - ✅ **Optimizaciones móviles:**
   - ✅ Corrección de layout para pantallas pequeñas (eliminación de pantalla en blanco)
   - ✅ Mejoras de compatibilidad con Android (área táctil aumentada, eventos touch)
@@ -214,6 +230,31 @@ ventacontrol-pro/
 - ✅ **Mejoras de interfaz:**
   - ✅ Versión del sistema visible en el sidebar
   - ✅ Constantes centralizadas para fácil mantenimiento
+- ✅ **Paginación en listados grandes:**
+  - ✅ Paginación implementada en todas las tablas del sistema (20 elementos por página)
+  - ✅ Controles de navegación con números de página y elipsis
+  - ✅ Reseteo automático cuando cambian los datos o filtros
+  - ✅ Implementado en: Historial de Ventas, Ventas a Crédito, Productos, Clientes, Usuarios, Categorías, Servicios, Registro de Servicios, Historial de Servicios, Movimientos de Inventario, Historial de Arqueos
+- ✅ **Impresión de tickets:**
+  - ✅ Impresión de tickets para ventas normales y a crédito
+  - ✅ Impresión de comprobantes de pago para cuotas de crédito
+  - ✅ Botón de impresión directo en cada fila del historial de ventas
+  - ✅ Formato optimizado para impresoras térmicas (80mm)
+  - ✅ Diseño diferenciado para ventas a crédito y pagos
+- ✅ **Diseño de reportes profesional:**
+  - ✅ Encabezado con logo y nombre del sistema
+  - ✅ Información de usuario y fecha del reporte
+  - ✅ Título centrado con formato profesional
+  - ✅ Tabla centrada con encabezados en color teal oscuro
+  - ✅ Formato consistente en todos los reportes exportados (PDF)
+- ✅ **Reportes específicos de ventas a crédito:**
+  - ✅ Pestañas para separar reportes generales de reportes de crédito
+  - ✅ Estadísticas específicas: Total ventas, Pendiente por cobrar, Total cobrado, Créditos activos, Pagados, Parciales, Pendientes
+  - ✅ Gráficos de distribución por estado (pendiente, parcial, pagado, vencido)
+  - ✅ Gráfico de tendencia de cobros por día
+  - ✅ Top 5 clientes con más créditos
+  - ✅ Exportación a PDF/Excel con información detallada de cada crédito (cliente, productos, intereses, pagos, saldo pendiente)
+  - ✅ Diseño optimizado de columnas para que todas quepan en el ancho de página
 
 **UI/UX:**
 - ✅ Diseño responsive (móvil, tablet, desktop)
@@ -224,14 +265,11 @@ ventacontrol-pro/
 - ✅ Animaciones sutiles
 
 ### 🔜 Pendiente (v3.0)
-- 🔜 Impresión de tickets
-- 🔜 Paginación en listados grandes
 - 🔜 Testing (unitario, integración, E2E)
 - 🔜 Notificaciones push
 - 🔜 Historial completo de movimientos de inventario con interfaz mejorada
 - 🔜 Sincronización offline
 - 🔜 Notificaciones de vencimiento de créditos
-- 🔜 Reportes específicos de ventas a crédito
 
 ## 🎨 Diseño
 
@@ -304,6 +342,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.2.0  
+**Versión**: 2.5.0  
 **Última actualización**: Diciembre 2024  
-**Estado**: Sistema completo con Ventas a Crédito y Optimizaciones Móviles - En producción
+**Estado**: Sistema completo con Ventas a Crédito, Gestión de Servicios y Optimizaciones Móviles - En producción

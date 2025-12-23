@@ -88,6 +88,78 @@ export const cashRegisterService = {
     return data.reduce((sum, sale) => sum + sale.total, 0);
   },
 
+  // Calcular total de ventas del día por método de pago (incluye crédito)
+  async getTodaySalesByMethod(): Promise<{ efectivo: number; qr: number; transferencia: number; credito: number }> {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const { data, error } = await supabase
+      .from('ventas')
+      .select('total, metodo_pago')
+      .eq('fecha', today)
+      .eq('estado', 'completada');
+
+    if (error) throw new Error(handleSupabaseError(error));
+
+    const totals = {
+      efectivo: 0,
+      qr: 0,
+      transferencia: 0,
+      credito: 0,
+    };
+
+    data.forEach((sale) => {
+      const metodo = sale.metodo_pago as keyof typeof totals;
+      if (totals[metodo] !== undefined) {
+        totals[metodo] += sale.total;
+      }
+    });
+
+    return totals;
+  },
+
+  // Calcular ingresos en efectivo/otros provenientes de ventas a crédito: cuota inicial + pagos de cuotas en el día
+  async getTodayCreditReceipts(): Promise<number> {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // Cuotas iniciales de ventas a crédito del día
+    const { data: creditSales, error: creditSalesError } = await supabase
+      .from('ventas')
+      .select('cuota_inicial')
+      .eq('fecha', today)
+      .eq('metodo_pago', 'credito')
+      .eq('estado', 'completada');
+
+    if (creditSalesError) throw new Error(handleSupabaseError(creditSalesError));
+
+    const cuotaInicialTotal = creditSales.reduce((sum, sale) => sum + (sale.cuota_inicial || 0), 0);
+
+    // Pagos de crédito registrados hoy
+    const { data: creditPayments, error: creditPaymentsError } = await supabase
+      .from('pagos_credito')
+      .select('monto_pagado')
+      .eq('fecha_pago', today);
+
+    if (creditPaymentsError) throw new Error(handleSupabaseError(creditPaymentsError));
+
+    const pagosCuotasTotal = creditPayments.reduce((sum, pago) => sum + pago.monto_pagado, 0);
+
+    return cuotaInicialTotal + pagosCuotasTotal;
+  },
+
+  // Calcular ingresos totales del día: efectivo + QR + transferencia + crédito (cuota inicial + pagos)
+  async getTodayTotalIncome(): Promise<number> {
+    const salesByMethod = await this.getTodaySalesByMethod();
+    const creditReceipts = await this.getTodayCreditReceipts();
+    return (
+      (salesByMethod?.efectivo || 0) +
+      (salesByMethod?.qr || 0) +
+      (salesByMethod?.transferencia || 0) +
+      (creditReceipts || 0)
+    );
+  },
+
   // Abrir caja
   async openRegister(montoInicial: number, idAdministrador: string): Promise<CashRegister> {
     // Obtener fecha local (no UTC) para evitar problemas de zona horaria
@@ -95,8 +167,8 @@ export const cashRegisterService = {
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const horaApertura = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     
-    // Calcular total de ventas del día
-    const totalVentas = await this.getTodayTotalSales();
+    // Calcular ingresos totales del día (efectivo/QR/transf + crédito ingresado)
+    const totalVentas = await this.getTodayTotalIncome();
     
     // Obtener timestamps en hora local
     const createdAt = getLocalDateTimeISO();
@@ -139,8 +211,11 @@ export const cashRegisterService = {
       throw new Error('Arqueo no encontrado');
     }
 
+    // Calcular ingresos totales del día (efectivo/QR/transf + crédito ingresado)
+    const totalIngresos = await this.getTodayTotalIncome();
+
     // Calcular diferencia
-    const totalEsperado = arqueo.monto_inicial + arqueo.total_ventas;
+    const totalEsperado = arqueo.monto_inicial + totalIngresos;
     const diferencia = efectivoReal - totalEsperado;
 
     // Obtener timestamp de actualización en hora local
@@ -151,6 +226,7 @@ export const cashRegisterService = {
       .update({
         hora_cierre: horaCierre,
         efectivo_real: efectivoReal,
+        total_ventas: totalIngresos,
         diferencia: diferencia,
         observacion: observacion || null,
         estado: 'cerrado',
@@ -166,7 +242,7 @@ export const cashRegisterService = {
 
   // Actualizar total de ventas del arqueo abierto
   async updateSalesTotal(id: string): Promise<void> {
-    const totalVentas = await this.getTodayTotalSales();
+    const totalVentas = await this.getTodayTotalIncome();
     // Obtener timestamp de actualización en hora local
     const updatedAt = getLocalDateTimeISO();
     
@@ -198,28 +274,46 @@ export const cashRegisterService = {
       throw new Error('Arqueo no encontrado');
     }
 
+    // Si el arqueo está abierto y es del día actual, recalcular el total de ventas
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const isOpenToday = arqueo.estado === 'abierto' && arqueo.fecha === today;
+    let totalVentasToUse = arqueo.total_ventas;
+    
+    if (isOpenToday) {
+      totalVentasToUse = await this.getTodayTotalIncome();
+    }
+
     // Calcular diferencia si se actualiza efectivo_real
     let diferencia = arqueo.diferencia;
     if (updates.efectivo_real !== undefined) {
       const montoInicial = updates.monto_inicial ?? arqueo.monto_inicial;
-      const totalEsperado = montoInicial + arqueo.total_ventas;
+      const totalEsperado = montoInicial + totalVentasToUse;
       diferencia = updates.efectivo_real - totalEsperado;
     } else if (updates.monto_inicial !== undefined) {
       const efectivoReal = arqueo.efectivo_real ?? 0;
-      const totalEsperado = updates.monto_inicial + arqueo.total_ventas;
+      const totalEsperado = updates.monto_inicial + totalVentasToUse;
       diferencia = efectivoReal - totalEsperado;
     }
 
     // Obtener timestamp de actualización en hora local
     const updatedAt = getLocalDateTimeISO();
     
+    // Preparar objeto de actualización
+    const updateData: any = {
+      ...updates,
+      diferencia,
+      updated_at: updatedAt, // Timestamp explícito en hora local
+    };
+    
+    // Solo actualizar total_ventas si es del día actual y está abierto
+    if (isOpenToday) {
+      updateData.total_ventas = totalVentasToUse;
+    }
+    
     const { data, error } = await supabase
       .from('arqueos_caja')
-      .update({
-        ...updates,
-        diferencia,
-        updated_at: updatedAt, // Timestamp explícito en hora local
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

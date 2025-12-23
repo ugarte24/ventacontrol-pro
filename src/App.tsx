@@ -17,6 +17,9 @@ import Reports from "./pages/Reports";
 import Users from "./pages/Users";
 import InventoryMovements from "./pages/InventoryMovements";
 import CreditSales from "./pages/CreditSales";
+import Servicios from "./pages/Servicios";
+import ServiciosRegistro from "./pages/ServiciosRegistro";
+import ServiciosHistorial from "./pages/ServiciosHistorial";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +49,9 @@ const App = () => (
               <Route path="/arqueo" element={<CashRegister />} />
               <Route path="/inventario/movimientos" element={<InventoryMovements />} />
               <Route path="/creditos" element={<CreditSales />} />
+              <Route path="/servicios" element={<Servicios />} />
+              <Route path="/servicios/registro" element={<ServiciosRegistro />} />
+              <Route path="/servicios/historial" element={<ServiciosHistorial />} />
               <Route path="/reportes" element={<Reports />} />
               <Route path="/usuarios" element={<Users />} />
               <Route path="*" element={<NotFound />} />

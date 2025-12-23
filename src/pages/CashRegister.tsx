@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,15 @@ import {
   TrendingDown,
   Edit
 } from 'lucide-react';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { 
   useOpenRegister,
   useCashRegisters,
@@ -42,7 +51,9 @@ import {
   useTodayTotalSales,
   useOpenCashRegister,
   useCloseCashRegister,
-  useUpdateCashRegister
+  useUpdateCashRegister,
+  useTodaySalesByMethod,
+  useTodayCreditReceipts
 } from '@/hooks/useCashRegister';
 import { useAuth } from '@/contexts';
 import { toast } from 'sonner';
@@ -83,6 +94,9 @@ export default function CashRegister() {
   const { data: registers = [], isLoading: loadingRegisters } = useCashRegisters();
   const { data: todayCashSales = 0 } = useTodayCashSales();
   const { data: todayTotalSales = 0 } = useTodayTotalSales();
+  const { data: salesByMethod = { efectivo: 0, qr: 0, transferencia: 0, credito: 0 }, isLoading: loadingByMethod } = useTodaySalesByMethod();
+  const { data: creditReceipts = 0, isLoading: loadingCreditReceipts } = useTodayCreditReceipts();
+  const totalVentasHoy = (salesByMethod?.efectivo || 0) + (salesByMethod?.qr || 0) + (salesByMethod?.transferencia || 0) + (creditReceipts || 0);
   
   const openRegisterMutation = useOpenCashRegister();
   const closeRegisterMutation = useCloseCashRegister();
@@ -93,6 +107,8 @@ export default function CashRegister() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingRegister, setEditingRegister] = useState<typeof registers[0] | null>(null);
   const [closingRegisterFromHistory, setClosingRegisterFromHistory] = useState<typeof registers[0] | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const openForm = useForm<OpenRegisterForm>({
     resolver: zodResolver(openRegisterSchema),
@@ -166,7 +182,12 @@ export default function CashRegister() {
 
   const handleCloseRegisterFromHistory = (register: typeof registers[0]) => {
     setClosingRegisterFromHistory(register);
-    const totalEsperado = register.monto_inicial + register.total_ventas;
+    // Si el arqueo es del día actual y está abierto, usar el total dinámico
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const isOpenToday = register.estado === 'abierto' && register.fecha === today;
+    const totalVentasToUse = isOpenToday ? totalVentasHoy : register.total_ventas;
+    const totalEsperado = register.monto_inicial + totalVentasToUse;
     closeForm.reset({
       efectivoReal: totalEsperado,
       observacion: '',
@@ -175,12 +196,25 @@ export default function CashRegister() {
   };
 
   const totalEsperado = openRegister 
-    ? openRegister.monto_inicial + openRegister.total_ventas 
+    ? openRegister.monto_inicial + totalVentasHoy 
     : 0;
 
   const diferencia = openRegister && openRegister.efectivo_real !== null
     ? openRegister.diferencia
     : 0;
+
+  // Paginación para historial de arqueos
+  const totalPages = Math.ceil(registers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRegisters = registers.slice(startIndex, endIndex);
+
+  // Resetear página cuando cambien los registros
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [registers.length, currentPage, totalPages]);
 
   const handleEditRegister = (register: typeof registers[0]) => {
     setEditingRegister(register);
@@ -276,6 +310,7 @@ export default function CashRegister() {
                 <Skeleton className="h-20 w-full" />
               </div>
             ) : openRegister ? (
+              <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card className="bg-primary/5 border-primary/20">
                   <CardContent className="p-4 sm:p-5 lg:p-6">
@@ -295,7 +330,7 @@ export default function CashRegister() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs sm:text-sm text-muted-foreground">Total Ventas</p>
-                        <p className="font-display text-xl sm:text-2xl font-bold">Bs. {openRegister.total_ventas.toFixed(2)}</p>
+                        <p className="font-display text-xl sm:text-2xl font-bold">Bs. {totalVentasHoy.toFixed(2)}</p>
                       </div>
                       <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-secondary flex items-center justify-center shrink-0">
                         <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
@@ -336,6 +371,40 @@ export default function CashRegister() {
                   </CardContent>
                 </Card>
               </div>
+              {/* Ventas por método */}
+              <Card className="mt-4">
+                <CardContent className="p-4 sm:p-5 lg:p-6">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-muted-foreground">Ventas por método (hoy)</p>
+                      <p className="font-display text-lg sm:text-xl font-semibold">Desglose del día</p>
+                    </div>
+                  </div>
+                  {loadingByMethod || loadingCreditReceipts ? (
+                    <Skeleton className="h-20 w-full" />
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="rounded-lg border p-3 bg-muted/30">
+                        <p className="text-xs text-muted-foreground">Efectivo</p>
+                        <p className="text-lg font-semibold">Bs. {salesByMethod.efectivo.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-lg border p-3 bg-muted/30">
+                        <p className="text-xs text-muted-foreground">QR</p>
+                        <p className="text-lg font-semibold">Bs. {salesByMethod.qr.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-lg border p-3 bg-muted/30">
+                        <p className="text-xs text-muted-foreground">Transferencia</p>
+                        <p className="text-lg font-semibold">Bs. {salesByMethod.transferencia.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-lg border p-3 bg-muted/30">
+                        <p className="text-xs text-muted-foreground">Crédito (ingresos)</p>
+                        <p className="text-lg font-semibold">Bs. {creditReceipts.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              </>
             ) : (
               <div className="text-center py-8">
                 <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -384,8 +453,13 @@ export default function CashRegister() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {registers.map((register) => {
-                      const totalEsperadoReg = register.monto_inicial + register.total_ventas;
+                    {paginatedRegisters.map((register) => {
+                      // Si el arqueo está abierto y es del día actual, calcular dinámicamente el total
+                      const now = new Date();
+                      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                      const isOpenToday = register.estado === 'abierto' && register.fecha === today;
+                      const totalVentasDisplay = isOpenToday ? totalVentasHoy : register.total_ventas;
+                      const totalEsperadoReg = register.monto_inicial + totalVentasDisplay;
                       return (
                         <TableRow key={register.id}>
                           <TableCell className="font-medium">
@@ -399,7 +473,7 @@ export default function CashRegister() {
                           <TableCell>{register.hora_apertura}</TableCell>
                           <TableCell>{register.hora_cierre || '-'}</TableCell>
                           <TableCell>Bs. {register.monto_inicial.toFixed(2)}</TableCell>
-                          <TableCell>Bs. {register.total_ventas.toFixed(2)}</TableCell>
+                          <TableCell>Bs. {totalVentasDisplay.toFixed(2)}</TableCell>
                           <TableCell>
                             {register.efectivo_real !== null 
                               ? `Bs. ${register.efectivo_real.toFixed(2)}` 
@@ -456,6 +530,56 @@ export default function CashRegister() {
                   </TableBody>
                 </Table>
                 </div>
+              </div>
+            )}
+            {registers.length > itemsPerPage && (
+              <div className="mt-4 flex justify-center">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => {
+                          if (currentPage > 1) setCurrentPage(currentPage - 1);
+                        }}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      } else if (page === currentPage - 2 || page === currentPage + 2) {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        );
+                      }
+                      return null;
+                    })}
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => {
+                          if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                        }}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
             )}
           </CardContent>
@@ -531,7 +655,12 @@ export default function CashRegister() {
             </DialogHeader>
             {(closingRegisterFromHistory || openRegister) && (() => {
               const registerToShow = closingRegisterFromHistory || openRegister;
-              const totalEsperadoShow = registerToShow ? registerToShow.monto_inicial + registerToShow.total_ventas : 0;
+              // Si el arqueo es del día actual y está abierto, usar el total dinámico
+              const now = new Date();
+              const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+              const isOpenToday = registerToShow && registerToShow.estado === 'abierto' && registerToShow.fecha === today;
+              const totalVentasShow = isOpenToday ? totalVentasHoy : (registerToShow?.total_ventas || 0);
+              const totalEsperadoShow = registerToShow ? registerToShow.monto_inicial + totalVentasShow : 0;
               return (
                 <div className="space-y-4 mb-4 p-4 bg-muted/50 rounded-lg">
                   {closingRegisterFromHistory && (() => {
@@ -549,7 +678,7 @@ export default function CashRegister() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Total Ventas:</span>
-                    <span className="font-medium">Bs. {registerToShow.total_ventas.toFixed(2)}</span>
+                    <span className="font-medium">Bs. {totalVentasShow.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2">
                     <span className="text-sm font-medium">Efectivo Esperado:</span>
@@ -586,7 +715,12 @@ export default function CashRegister() {
               </div>
               {closeForm.watch('efectivoReal') !== undefined && (closingRegisterFromHistory || openRegister) && (() => {
                 const registerToCalc = closingRegisterFromHistory || openRegister;
-                const totalEsperadoCalc = registerToCalc ? registerToCalc.monto_inicial + registerToCalc.total_ventas : 0;
+                // Si el arqueo es del día actual y está abierto, usar el total dinámico
+                const now = new Date();
+                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const isOpenTodayCalc = registerToCalc && registerToCalc.estado === 'abierto' && registerToCalc.fecha === today;
+                const totalVentasCalc = isOpenTodayCalc ? totalVentasHoy : (registerToCalc?.total_ventas || 0);
+                const totalEsperadoCalc = registerToCalc ? registerToCalc.monto_inicial + totalVentasCalc : 0;
                 return (
                   <div className="p-3 rounded-lg bg-muted">
                     <div className="flex justify-between items-center">
@@ -637,6 +771,11 @@ export default function CashRegister() {
             </DialogHeader>
             {editingRegister && (() => {
                 const [year, month, day] = editingRegister.fecha.split('-');
+                // Si el arqueo es del día actual y está abierto, usar el total dinámico
+                const now = new Date();
+                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const isOpenTodayEdit = editingRegister.estado === 'abierto' && editingRegister.fecha === today;
+                const totalVentasEdit = isOpenTodayEdit ? totalVentasHoy : editingRegister.total_ventas;
                 return (
                   <div className="space-y-4 mb-4 p-4 bg-muted/50 rounded-lg">
                     <div className="flex justify-between">
@@ -645,12 +784,12 @@ export default function CashRegister() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Total Ventas:</span>
-                      <span className="font-medium">Bs. {editingRegister.total_ventas.toFixed(2)}</span>
+                      <span className="font-medium">Bs. {totalVentasEdit.toFixed(2)}</span>
                     </div>
                     {editingRegister.efectivo_real !== null && (
                       <div className="flex justify-between border-t pt-2">
                         <span className="text-sm font-medium">Total Esperado:</span>
-                        <span className="font-bold">Bs. {(editingRegister.monto_inicial + editingRegister.total_ventas).toFixed(2)}</span>
+                        <span className="font-bold">Bs. {(editingRegister.monto_inicial + totalVentasEdit).toFixed(2)}</span>
                       </div>
                     )}
                   </div>
@@ -719,21 +858,29 @@ export default function CashRegister() {
                   rows={3}
                 />
               </div>
-              {editingRegister && editForm.watch('efectivoReal') !== null && editForm.watch('efectivoReal') !== undefined && (
-                <div className="p-3 rounded-lg bg-muted">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Diferencia:</span>
-                    <span className={`font-bold text-lg ${
-                      (editForm.watch('efectivoReal') ?? 0) - (editForm.watch('montoInicial') + editingRegister.total_ventas) >= 0 
-                        ? 'text-success' 
-                        : 'text-destructive'
-                    }`}>
-                      {((editForm.watch('efectivoReal') ?? 0) - (editForm.watch('montoInicial') + editingRegister.total_ventas)) >= 0 ? '+' : '-'}
-                      Bs. {Math.abs((editForm.watch('efectivoReal') ?? 0) - (editForm.watch('montoInicial') + editingRegister.total_ventas)).toFixed(2)}
-                    </span>
+              {editingRegister && editForm.watch('efectivoReal') !== null && editForm.watch('efectivoReal') !== undefined && (() => {
+                // Si el arqueo es del día actual y está abierto, usar el total dinámico
+                const now = new Date();
+                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const isOpenTodayEditCalc = editingRegister.estado === 'abierto' && editingRegister.fecha === today;
+                const totalVentasEditCalc = isOpenTodayEditCalc ? totalVentasHoy : editingRegister.total_ventas;
+                const diferenciaEdit = (editForm.watch('efectivoReal') ?? 0) - (editForm.watch('montoInicial') + totalVentasEditCalc);
+                return (
+                  <div className="p-3 rounded-lg bg-muted">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Diferencia:</span>
+                      <span className={`font-bold text-lg ${
+                        diferenciaEdit >= 0 
+                          ? 'text-success' 
+                          : 'text-destructive'
+                      }`}>
+                        {diferenciaEdit >= 0 ? '+' : '-'}
+                        Bs. {Math.abs(diferenciaEdit).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
               <DialogFooter>
                 <Button
                   type="button"

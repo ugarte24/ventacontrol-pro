@@ -153,7 +153,7 @@ export default function SalesHistory() {
     }
   };
 
-  // Imprimir ticket
+  // Imprimir ticket desde diálogo de detalles
   const handlePrintTicket = async () => {
     if (!selectedSale) return;
 
@@ -178,6 +178,37 @@ export default function SalesHistory() {
 
       printTicket({
         sale: selectedSale,
+        items: detailsWithProducts,
+        vendedor: vendedorName,
+      });
+    } catch (error: any) {
+      toast.error(error.message || 'Error al imprimir ticket');
+    }
+  };
+
+  // Imprimir ticket directamente desde la tabla
+  const handlePrintTicketFromTable = async (sale: Sale) => {
+    try {
+      // Obtener detalles de la venta
+      const details = await salesService.getDetails(sale.id);
+      
+      // Obtener información del vendedor
+      const vendedorName = getVendedorName(sale.id_vendedor);
+
+      // Obtener nombres de productos
+      const detailsWithProducts = details.map((detail) => {
+        const product = products?.find(p => p.id === detail.id_producto);
+        return {
+          ...detail,
+          producto: product ? {
+            nombre: product.nombre,
+            codigo: product.codigo,
+          } : undefined,
+        };
+      });
+
+      printTicket({
+        sale: sale,
         items: detailsWithProducts,
         vendedor: vendedorName,
       });
@@ -302,7 +333,7 @@ export default function SalesHistory() {
 
     try {
       await exportService.exportToPDF({
-        title: 'Historial de Ventas',
+        title: 'HISTORIAL DE VENTAS',
         columns: [
           { header: 'Fecha', dataKey: 'fecha', width: 25 },
           { header: 'Hora', dataKey: 'hora', width: 20 },
@@ -333,6 +364,9 @@ export default function SalesHistory() {
           desde: fechaDesde || undefined,
           hasta: fechaHasta || undefined,
         },
+        usuario: user?.nombre || 'N/A',
+        entity: 'VentaPlus - Sistema de Gestión de Ventas',
+        reportType: 'HISTORIAL DE TRANSACCIONES',
       });
       toast.success('Exportación a PDF completada');
     } catch (error: any) {
@@ -652,9 +686,20 @@ export default function SalesHistory() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleViewDetails(sale)}
+                                title="Ver detalles"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
+                              {sale.estado === 'completada' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handlePrintTicketFromTable(sale)}
+                                  title="Imprimir ticket"
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </Button>
+                              )}
                               {user?.rol === 'admin' && sale.estado === 'completada' && (
                                 <Button
                                   variant="ghost"
@@ -664,6 +709,7 @@ export default function SalesHistory() {
                                     setSaleToCancel(sale.id);
                                     setShowCancelDialog(true);
                                   }}
+                                  title="Anular venta"
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>

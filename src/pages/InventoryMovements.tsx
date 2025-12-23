@@ -353,7 +353,7 @@ export default function InventoryMovements() {
 
     try {
       await exportService.exportToPDF({
-        title: 'Movimientos de Inventario',
+        title: 'INVENTARIO',
         columns: [
           { header: 'Fecha', dataKey: 'fecha', width: 25 },
           { header: 'Producto', dataKey: 'producto.nombre', width: 50 },
@@ -373,6 +373,9 @@ export default function InventoryMovements() {
           desde: fechaDesde || undefined,
           hasta: fechaHasta || undefined,
         },
+        usuario: user?.nombre || 'N/A',
+        entity: 'VentaPlus - Sistema de Gestión de Ventas',
+        reportType: 'MOVIMIENTOS DE INVENTARIO',
       });
       toast.success('Exportación a PDF completada');
     } catch (error: any) {
