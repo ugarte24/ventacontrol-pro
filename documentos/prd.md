@@ -248,8 +248,8 @@ En el negocio no existe un control digital de inventarios, clientes ni ventas. L
   fecha: string;                   // YYYY-MM-DD (único por servicio y fecha)
   saldo_inicial: number;           // Saldo al inicio del día
   saldo_final: number;             // Saldo al final del día
-  monto_transaccionado: number;    // Calculado: saldo_final - saldo_inicial - monto_aumentado
-  monto_aumentado: number;         // Suma de todos los aumentos del día
+  monto_transaccionado: number;    // Calculado: saldo_inicial + monto_aumentado - saldo_final
+  monto_aumentado: number;         // Suma de todos los aumentos del día (calculado automáticamente o editable manualmente)
   id_usuario: string;              // Usuario que registró
   observacion?: string;
   created_at: string;
@@ -311,9 +311,10 @@ Los reportes se generan dinámicamente a partir de:
 
 **Gestión de Servicios:**
 - CRUD completo de servicios (crear, editar, eliminar)
-- Ver todos los servicios y sus saldos
+- Ver todos los servicios (nombre, descripción, estado)
 - Ver historial completo de movimientos y registros
 - Gestionar aumentos de saldo
+- Editar manualmente el monto aumentado en el registro diario
 
 ### 🧾 VENDEDOR – Acceso Limitado
 
@@ -329,9 +330,10 @@ Los reportes se generan dinámicamente a partir de:
 - Ver clientes existentes
 
 **Servicios:**
-- Ver servicios activos y sus saldos
+- Ver servicios activos (nombre, descripción, estado)
 - Aumentar saldo de servicios
 - Registrar saldo inicial y final del día (cierre diario)
+- Editar manualmente el monto aumentado en el registro diario
 - Ver historial de movimientos y registros
 - **No puede**: crear, editar o eliminar servicios
 
@@ -437,8 +439,11 @@ Los reportes se generan dinámicamente a partir de:
   - ✅ Aumento de saldo de servicios con historial
   - ✅ Registro diario de saldo inicial y final
   - ✅ Cálculo automático de monto transaccionado y aumentado
+  - ✅ Edición manual del monto aumentado en el registro diario
   - ✅ Historial completo de movimientos y registros
   - ✅ Visualización de servicios en Dashboard
+  - ✅ Búsqueda de servicios en la lista principal
+  - ✅ Interfaz simplificada: saldo actual no visible en lista (solo en registro diario)
 - ✅ Gestión de movimientos de inventario
 - ✅ Arqueo de caja (apertura y cierre)
 - ✅ Exportación de reportes a PDF y Excel
@@ -568,7 +573,7 @@ Los reportes se generan dinámicamente a partir de:
 
 **Versión del PRD:** 2.6  
 **Última actualización:** Diciembre 2024  
-**Estado del Proyecto:** v2.5.0 - Sistema Completo con Reportes Específicos de Ventas a Crédito
+**Estado del Proyecto:** v2.6.0 - Sistema Completo con Edición Manual de Monto Aumentado en Servicios
 
 ### 📝 Notas Técnicas Importantes
 

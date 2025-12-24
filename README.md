@@ -170,6 +170,7 @@ ventacontrol-pro/
 - Registrar clientes
 - Registrar pagos de crédito
 - Registrar servicios diarios (saldo inicial/final)
+- Editar manualmente el monto aumentado en el registro diario
 - Aumentar saldo de servicios
 - Ver historial de servicios
 - **No puede**: gestionar productos, usuarios, crear/editar/eliminar servicios, ver reportes generales o eximir intereses
@@ -217,8 +218,11 @@ ventacontrol-pro/
   - ✅ Aumento de saldo de servicios con historial
   - ✅ Registro diario de saldo inicial y final
   - ✅ Cálculo automático de monto transaccionado y aumentado
+  - ✅ Edición manual del monto aumentado en el registro diario
   - ✅ Historial completo de movimientos y registros
   - ✅ Visualización de servicios en Dashboard
+  - ✅ Búsqueda de servicios en la lista principal
+  - ✅ Interfaz simplificada: saldo actual no visible en lista (solo en registro diario)
 - ✅ **Optimizaciones móviles:**
   - ✅ Corrección de layout para pantallas pequeñas (eliminación de pantalla en blanco)
   - ✅ Mejoras de compatibilidad con Android (área táctil aumentada, eventos touch)
@@ -342,6 +346,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.5.0  
+**Versión**: 2.6.0  
 **Última actualización**: Diciembre 2024  
 **Estado**: Sistema completo con Ventas a Crédito, Gestión de Servicios y Optimizaciones Móviles - En producción

@@ -148,6 +148,18 @@ export const serviciosService = {
       .single();
 
     if (error) throw new Error(handleSupabaseError(error));
+
+    // Si existe un registro para esta fecha, actualizarlo para que el trigger recalcule monto_transaccionado
+    const registroExistente = await this.getRegistroPorFecha(movimientoData.id_servicio, movimientoData.fecha);
+    if (registroExistente) {
+      // Actualizar el registro con los mismos valores para que el trigger recalcule monto_aumentado y monto_transaccionado
+      await this.updateRegistro(registroExistente.id, {
+        saldo_inicial: registroExistente.saldo_inicial,
+        saldo_final: registroExistente.saldo_final,
+        observacion: registroExistente.observacion || undefined,
+      });
+    }
+
     return data as MovimientoServicio;
   },
 
@@ -253,6 +265,7 @@ export const serviciosService = {
         fecha: registroData.fecha,
         saldo_inicial: registroData.saldo_inicial,
         saldo_final: registroData.saldo_final,
+        monto_aumentado: registroData.monto_aumentado !== undefined ? registroData.monto_aumentado : null,
         id_usuario: registroData.id_usuario,
         observacion: registroData.observacion || null,
       })

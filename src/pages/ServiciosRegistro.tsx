@@ -31,6 +31,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   Calendar,
   TrendingUp,
@@ -38,7 +44,10 @@ import {
   Wallet,
   Loader,
   CheckCircle2,
-  XCircle
+  XCircle,
+  MoreVertical,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { useServicios } from '@/hooks/useServicios';
 import { 
@@ -47,7 +56,8 @@ import {
   useCreateRegistroServicio,
   useUpdateRegistroServicio,
   useDeleteRegistroServicio,
-  useMovimientosServicios
+  useMovimientosServicios,
+  useCreateMovimientoServicio
 } from '@/hooks/useServicios';
 import { useAuth } from '@/contexts';
 import { Servicio, RegistroServicio } from '@/types';
@@ -66,17 +76,54 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { getLocalDateISO } from '@/lib/utils';
+import { getLocalDateISO, getLocalTimeISO } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // Esquemas de validación
 const registroSchema = z.object({
-  saldo_inicial: z.number().min(0, 'El saldo inicial no puede ser negativo'),
-  saldo_final: z.number().min(0, 'El saldo final no puede ser negativo'),
+  saldo_inicial: z.preprocess(
+    (val) => {
+      if (val === '' || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    },
+    z.number({
+      required_error: 'El saldo inicial es requerido',
+      invalid_type_error: 'El saldo inicial debe ser un número válido',
+    }).min(0, 'El saldo inicial no puede ser negativo')
+  ),
+  saldo_final: z.preprocess(
+    (val) => {
+      if (val === '' || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    },
+    z.number({
+      required_error: 'El saldo final es requerido',
+      invalid_type_error: 'El saldo final debe ser un número válido',
+    }).min(0, 'El saldo final no puede ser negativo')
+  ),
+  monto_aumentado: z.preprocess(
+    (val) => {
+      if (val === '' || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    },
+    z.number({
+      required_error: 'El monto aumentado es requerido',
+      invalid_type_error: 'El monto aumentado debe ser un número válido',
+    }).min(0, 'El monto aumentado no puede ser negativo')
+  ).optional(),
+  observacion: z.string().optional(),
+});
+
+const aumentarSaldoSchema = z.object({
+  monto: z.number().min(0.01, 'El monto debe ser mayor a 0'),
   observacion: z.string().optional(),
 });
 
 type RegistroForm = z.infer<typeof registroSchema>;
+type AumentarSaldoForm = z.infer<typeof aumentarSaldoSchema>;
 
 export default function ServiciosRegistro() {
   const { user } = useAuth();
@@ -86,6 +133,7 @@ export default function ServiciosRegistro() {
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
   const [showRegistroDialog, setShowRegistroDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showAumentarDialog, setShowAumentarDialog] = useState(false);
   const [registroToDelete, setRegistroToDelete] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -105,12 +153,21 @@ export default function ServiciosRegistro() {
   const createRegistro = useCreateRegistroServicio();
   const updateRegistro = useUpdateRegistroServicio();
   const deleteRegistro = useDeleteRegistroServicio();
+  const createMovimiento = useCreateMovimientoServicio();
 
   const registroForm = useForm<RegistroForm>({
     resolver: zodResolver(registroSchema),
     defaultValues: {
       saldo_inicial: 0,
       saldo_final: 0,
+      observacion: '',
+    },
+  });
+
+  const aumentarSaldoForm = useForm<AumentarSaldoForm>({
+    resolver: zodResolver(aumentarSaldoSchema),
+    defaultValues: {
+      monto: 0,
       observacion: '',
     },
   });
@@ -152,19 +209,22 @@ export default function ServiciosRegistro() {
     
     // Buscar si ya existe un registro para esta fecha
     const registroExistente = registrosPorServicio.get(servicio.id);
+    const montoAumentadoCalculado = movimientosPorServicio.get(servicio.id) || 0;
     
     if (registroExistente) {
       // Si existe, cargar los valores para editar
       registroForm.reset({
         saldo_inicial: registroExistente.saldo_inicial,
         saldo_final: registroExistente.saldo_final,
+        monto_aumentado: registroExistente.monto_aumentado,
         observacion: registroExistente.observacion || '',
       });
     } else {
-      // Si no existe, usar el saldo actual como inicial y final
+      // Si no existe, usar el saldo actual como inicial y final, y el monto aumentado calculado
       registroForm.reset({
         saldo_inicial: servicio.saldo_actual,
         saldo_final: servicio.saldo_actual,
+        monto_aumentado: montoAumentadoCalculado,
         observacion: '',
       });
     }
@@ -177,6 +237,11 @@ export default function ServiciosRegistro() {
 
     try {
       const registroExistente = registrosPorServicio.get(selectedServicio.id);
+      // Usar el valor del formulario si está definido (incluso si es 0), sino usar el calculado
+      // Si data.monto_aumentado es undefined o null, usar el calculado
+      const montoAumentado = data.monto_aumentado !== undefined && data.monto_aumentado !== null 
+        ? data.monto_aumentado 
+        : (movimientosPorServicio.get(selectedServicio.id) || 0);
 
       if (registroExistente) {
         // Actualizar registro existente
@@ -185,6 +250,7 @@ export default function ServiciosRegistro() {
           updates: {
             saldo_inicial: data.saldo_inicial,
             saldo_final: data.saldo_final,
+            monto_aumentado: montoAumentado,
             observacion: data.observacion || undefined,
           },
         });
@@ -195,6 +261,7 @@ export default function ServiciosRegistro() {
           fecha: fecha,
           saldo_inicial: data.saldo_inicial,
           saldo_final: data.saldo_final,
+          monto_aumentado: montoAumentado,
           id_usuario: user.id,
           observacion: data.observacion || undefined,
         });
@@ -218,6 +285,40 @@ export default function ServiciosRegistro() {
     } catch (error) {
       // El error ya se maneja en el hook
     }
+  };
+
+  const handleAumentarSaldo = async (data: AumentarSaldoForm) => {
+    if (!selectedServicio || !user) return;
+
+    try {
+      const fechaActual = getLocalDateISO();
+      const horaActual = getLocalTimeISO();
+
+      await createMovimiento.mutateAsync({
+        id_servicio: selectedServicio.id,
+        tipo: 'aumento',
+        monto: data.monto,
+        fecha: fechaActual,
+        hora: horaActual,
+        id_usuario: user.id,
+        observacion: data.observacion || undefined,
+      });
+
+      setShowAumentarDialog(false);
+      setSelectedServicio(null);
+      aumentarSaldoForm.reset();
+    } catch (error) {
+      // El error ya se maneja en el hook
+    }
+  };
+
+  const handleOpenAumentarDialog = (servicio: Servicio) => {
+    setSelectedServicio(servicio);
+    aumentarSaldoForm.reset({
+      monto: 0,
+      observacion: '',
+    });
+    setShowAumentarDialog(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -278,9 +379,9 @@ export default function ServiciosRegistro() {
                     <TableRow>
                       <TableHead>Servicio</TableHead>
                       <TableHead className="text-right">Saldo Inicial</TableHead>
-                      <TableHead className="text-right">Saldo Final</TableHead>
                       <TableHead className="text-right">Aumentado</TableHead>
-                      <TableHead className="text-right">Transaccionado</TableHead>
+                      <TableHead className="text-right">Saldo Final</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead className="text-center">Acciones</TableHead>
                     </TableRow>
@@ -304,6 +405,19 @@ export default function ServiciosRegistro() {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
+                            {(() => {
+                              // Usar el monto_aumentado del registro si existe, sino el calculado
+                              const montoAumentadoMostrar = registro?.monto_aumentado ?? montoAumentado;
+                              return montoAumentadoMostrar > 0 ? (
+                                <span className="text-green-600 font-semibold">
+                                  +Bs. {montoAumentadoMostrar.toFixed(2)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">Bs. 0.00</span>
+                              );
+                            })()}
+                          </TableCell>
+                          <TableCell className="text-right">
                             {registro ? (
                               <span className="font-semibold">
                                 Bs. {registro.saldo_final.toFixed(2)}
@@ -313,20 +427,19 @@ export default function ServiciosRegistro() {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            {montoAumentado > 0 ? (
-                              <span className="text-green-600 font-semibold">
-                                +Bs. {montoAumentado.toFixed(2)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">Bs. 0.00</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
                             {registro ? (
-                              <span className={registro.monto_transaccionado >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                {registro.monto_transaccionado >= 0 ? '+' : ''}
-                                Bs. {registro.monto_transaccionado.toFixed(2)}
-                              </span>
+                              (() => {
+                                // Calcular Total dinámicamente: saldo_inicial + monto_aumentado - saldo_final
+                                // Usar el monto_aumentado del registro si existe, sino el calculado
+                                const montoAumentadoUsar = registro.monto_aumentado ?? montoAumentado;
+                                const totalCalculado = registro.saldo_inicial + montoAumentadoUsar - registro.saldo_final;
+                                return (
+                                  <span className={totalCalculado >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                    {totalCalculado >= 0 ? '+' : ''}
+                                    Bs. {totalCalculado.toFixed(2)}
+                                  </span>
+                                );
+                              })()
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
@@ -345,28 +458,35 @@ export default function ServiciosRegistro() {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenRegistroDialog(servicio)}
-                              >
-                                {tieneRegistro ? 'Editar' : 'Registrar'}
-                              </Button>
-                              {tieneRegistro && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setRegistroToDelete(registro.id);
-                                    setShowDeleteDialog(true);
-                                  }}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  Eliminar
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreVertical className="h-4 w-4" />
                                 </Button>
-                              )}
-                            </div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenAumentarDialog(servicio)}>
+                                  <TrendingUp className="mr-2 h-4 w-4" />
+                                  Aumentar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenRegistroDialog(servicio)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  {tieneRegistro ? 'Editar' : 'Registrar'}
+                                </DropdownMenuItem>
+                                {tieneRegistro && (
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setRegistroToDelete(registro.id);
+                                      setShowDeleteDialog(true);
+                                    }}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       );
@@ -457,6 +577,26 @@ export default function ServiciosRegistro() {
               )}
             </div>
             <div className="space-y-2">
+              <Label htmlFor="monto_aumentado">Aumentado (Bs.)</Label>
+              <Input
+                id="monto_aumentado"
+                type="number"
+                step="0.01"
+                min="0"
+                {...registroForm.register('monto_aumentado', { valueAsNumber: true })}
+              />
+              {registroForm.formState.errors.monto_aumentado && (
+                <p className="text-sm text-destructive">
+                  {registroForm.formState.errors.monto_aumentado.message}
+                </p>
+              )}
+              {selectedServicio && (
+                <p className="text-xs text-muted-foreground">
+                  Calculado automáticamente: +Bs. {(movimientosPorServicio.get(selectedServicio.id) || 0).toFixed(2)}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="saldo_final">Saldo Final (Bs.) *</Label>
               <Input
                 id="saldo_final"
@@ -468,11 +608,6 @@ export default function ServiciosRegistro() {
               {registroForm.formState.errors.saldo_final && (
                 <p className="text-sm text-destructive">
                   {registroForm.formState.errors.saldo_final.message}
-                </p>
-              )}
-              {selectedServicio && (
-                <p className="text-xs text-muted-foreground">
-                  Saldo actual: Bs. {selectedServicio.saldo_actual.toFixed(2)}
                 </p>
               )}
             </div>
@@ -489,30 +624,22 @@ export default function ServiciosRegistro() {
               <p className="text-xs text-muted-foreground mb-1">Resumen del día</p>
               <div className="space-y-1">
                 {selectedServicio && (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span>Aumentado:</span>
-                      <span className="font-semibold text-green-600">
-                        +Bs. {(movimientosPorServicio.get(selectedServicio.id) || 0).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Transaccionado:</span>
-                      <span className="font-semibold">
-                        {(() => {
-                          const saldoInicial = registroForm.watch('saldo_inicial');
-                          const saldoFinal = registroForm.watch('saldo_final');
-                          const aumentado = movimientosPorServicio.get(selectedServicio.id) || 0;
-                          const transaccionado = saldoFinal - saldoInicial - aumentado;
-                          return (
-                            <span className={transaccionado >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              {transaccionado >= 0 ? '+' : ''}Bs. {transaccionado.toFixed(2)}
-                            </span>
-                          );
-                        })()}
-                      </span>
-                    </div>
-                  </>
+                  <div className="flex justify-between text-sm">
+                    <span>Total:</span>
+                    <span className="font-semibold">
+                      {(() => {
+                        const saldoInicial = registroForm.watch('saldo_inicial');
+                        const saldoFinal = registroForm.watch('saldo_final');
+                        const montoAumentado = registroForm.watch('monto_aumentado') ?? (movimientosPorServicio.get(selectedServicio.id) || 0);
+                        const transaccionado = saldoInicial + montoAumentado - saldoFinal;
+                        return (
+                          <span className={transaccionado >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {transaccionado >= 0 ? '+' : ''}Bs. {transaccionado.toFixed(2)}
+                          </span>
+                        );
+                      })()}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
@@ -536,6 +663,66 @@ export default function ServiciosRegistro() {
                   <Loader className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 Guardar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Aumentar Saldo */}
+      <Dialog open={showAumentarDialog} onOpenChange={setShowAumentarDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aumentar Saldo</DialogTitle>
+            <DialogDescription>
+              Aumentar saldo para: <strong>{selectedServicio?.nombre}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={aumentarSaldoForm.handleSubmit(handleAumentarSaldo)} className="space-y-4">
+            <div className="rounded-lg border p-4 bg-muted/50">
+              <p className="text-sm text-muted-foreground">Saldo Actual</p>
+              <p className="text-2xl font-bold">Bs. {selectedServicio?.saldo_actual.toFixed(2)}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="monto">Monto a Aumentar (Bs.) *</Label>
+              <Input
+                id="monto"
+                type="number"
+                step="0.01"
+                min="0.01"
+                {...aumentarSaldoForm.register('monto', { valueAsNumber: true })}
+                placeholder="0.00"
+              />
+              {aumentarSaldoForm.formState.errors.monto && (
+                <p className="text-sm text-destructive">
+                  {aumentarSaldoForm.formState.errors.monto.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="observacion-aumentar">Observación</Label>
+              <Textarea
+                id="observacion-aumentar"
+                {...aumentarSaldoForm.register('observacion')}
+                placeholder="Ej: Recarga de Bs. 1000"
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAumentarDialog(false);
+                  setSelectedServicio(null);
+                  aumentarSaldoForm.reset();
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createMovimiento.isPending}>
+                {createMovimiento.isPending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+                Aumentar Saldo
               </Button>
             </DialogFooter>
           </form>

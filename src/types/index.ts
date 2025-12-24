@@ -161,6 +161,7 @@ export interface CreateRegistroServicioData {
   fecha: string;
   saldo_inicial: number;
   saldo_final: number;
+  monto_aumentado?: number;
   id_usuario: string;
   observacion?: string;
 }

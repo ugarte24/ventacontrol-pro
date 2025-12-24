@@ -37,16 +37,13 @@ import {
   Trash2,
   Loader,
   X,
-  TrendingUp,
-  Wallet,
   Search
 } from 'lucide-react';
 import { 
   useServicios, 
   useCreateServicio, 
   useUpdateServicio, 
-  useDeleteServicio,
-  useCreateMovimientoServicio
+  useDeleteServicio
 } from '@/hooks/useServicios';
 import { useAuth } from '@/contexts';
 import { Servicio } from '@/types';
@@ -64,23 +61,14 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { getLocalDateISO, getLocalTimeISO } from '@/lib/utils';
 
 // Esquemas de validación
 const createServicioSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   descripcion: z.string().optional(),
-  saldo_actual: z.number().min(0, 'El saldo no puede ser negativo').default(0),
-  estado: z.enum(['activo', 'inactivo']).optional(),
-});
-
-const aumentarSaldoSchema = z.object({
-  monto: z.number().min(0.01, 'El monto debe ser mayor a 0'),
-  observacion: z.string().optional(),
 });
 
 type CreateServicioForm = z.infer<typeof createServicioSchema>;
-type AumentarSaldoForm = z.infer<typeof aumentarSaldoSchema>;
 
 export default function Servicios() {
   const { user } = useAuth();
@@ -88,13 +76,11 @@ export default function Servicios() {
   const createServicio = useCreateServicio();
   const updateServicio = useUpdateServicio();
   const deleteServicio = useDeleteServicio();
-  const createMovimiento = useCreateMovimientoServicio();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showAumentarDialog, setShowAumentarDialog] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
   const [servicioToDelete, setServicioToDelete] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,21 +91,11 @@ export default function Servicios() {
     defaultValues: {
       nombre: '',
       descripcion: '',
-      saldo_actual: 0,
-      estado: 'activo',
     },
   });
 
   const editForm = useForm<CreateServicioForm>({
     resolver: zodResolver(createServicioSchema),
-  });
-
-  const aumentarSaldoForm = useForm<AumentarSaldoForm>({
-    resolver: zodResolver(aumentarSaldoSchema),
-    defaultValues: {
-      monto: 0,
-      observacion: '',
-    },
   });
 
   // Filtrar servicios por término de búsqueda
@@ -135,6 +111,10 @@ export default function Servicios() {
 
   // Resetear página cuando cambien los servicios o el término de búsqueda
   useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(1);
     }
@@ -142,7 +122,13 @@ export default function Servicios() {
 
   const handleCreateServicio = async (data: CreateServicioForm) => {
     try {
-      await createServicio.mutateAsync(data);
+      // Solo enviar nombre y descripción, el saldo_actual será 0 por defecto y estado será 'activo'
+      await createServicio.mutateAsync({
+        nombre: data.nombre,
+        descripcion: data.descripcion,
+        saldo_actual: 0,
+        estado: 'activo',
+      });
       setShowCreateDialog(false);
       createForm.reset();
     } catch (error) {
@@ -178,49 +164,13 @@ export default function Servicios() {
     }
   };
 
-  const handleAumentarSaldo = async (data: AumentarSaldoForm) => {
-    if (!selectedServicio || !user) return;
-
-    try {
-      const fechaActual = getLocalDateISO();
-      const horaActual = getLocalTimeISO();
-
-      await createMovimiento.mutateAsync({
-        id_servicio: selectedServicio.id,
-        tipo: 'aumento',
-        monto: data.monto,
-        fecha: fechaActual,
-        hora: horaActual,
-        id_usuario: user.id,
-        observacion: data.observacion || undefined,
-      });
-
-      setShowAumentarDialog(false);
-      setSelectedServicio(null);
-      aumentarSaldoForm.reset();
-    } catch (error) {
-      // El error ya se maneja en el hook
-    }
-  };
-
   const handleOpenEditDialog = (servicio: Servicio) => {
     setSelectedServicio(servicio);
     editForm.reset({
       nombre: servicio.nombre,
       descripcion: servicio.descripcion || '',
-      saldo_actual: servicio.saldo_actual,
-      estado: servicio.estado,
     });
     setShowEditDialog(true);
-  };
-
-  const handleOpenAumentarDialog = (servicio: Servicio) => {
-    setSelectedServicio(servicio);
-    aumentarSaldoForm.reset({
-      monto: 0,
-      observacion: '',
-    });
-    setShowAumentarDialog(true);
   };
 
   const isAdmin = user?.rol === 'admin';
@@ -282,7 +232,6 @@ export default function Servicios() {
                     <TableRow>
                       <TableHead>Nombre</TableHead>
                       <TableHead>Descripción</TableHead>
-                      <TableHead className="text-right">Saldo Actual</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead className="text-center">Acciones</TableHead>
                     </TableRow>
@@ -294,9 +243,6 @@ export default function Servicios() {
                         <TableCell className="text-muted-foreground">
                           {servicio.descripcion || '-'}
                         </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          Bs. {servicio.saldo_actual.toFixed(2)}
-                        </TableCell>
                         <TableCell>
                           <Badge variant={servicio.estado === 'activo' ? 'default' : 'secondary'}>
                             {servicio.estado}
@@ -304,15 +250,6 @@ export default function Servicios() {
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenAumentarDialog(servicio)}
-                              className="gap-1"
-                            >
-                              <TrendingUp className="h-4 w-4" />
-                              Aumentar
-                            </Button>
                             {isAdmin && (
                               <>
                                 <Button
@@ -403,7 +340,7 @@ export default function Servicios() {
           <DialogHeader>
             <DialogTitle>Nuevo Servicio</DialogTitle>
             <DialogDescription>
-              Crea un nuevo tipo de servicio (Recarga, Agente BCP, etc.)
+              Crea un nuevo tipo de servicio
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={createForm.handleSubmit(handleCreateServicio)} className="space-y-4">
@@ -428,21 +365,6 @@ export default function Servicios() {
                 placeholder="Descripción del servicio"
                 rows={3}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="saldo_actual">Saldo Inicial</Label>
-              <Input
-                id="saldo_actual"
-                type="number"
-                step="0.01"
-                min="0"
-                {...createForm.register('saldo_actual', { valueAsNumber: true })}
-              />
-              {createForm.formState.errors.saldo_actual && (
-                <p className="text-sm text-destructive">
-                  {createForm.formState.errors.saldo_actual.message}
-                </p>
-              )}
             </div>
             <DialogFooter>
               <Button
@@ -495,21 +417,6 @@ export default function Servicios() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-saldo_actual">Saldo Actual</Label>
-              <Input
-                id="edit-saldo_actual"
-                type="number"
-                step="0.01"
-                min="0"
-                {...editForm.register('saldo_actual', { valueAsNumber: true })}
-              />
-              {editForm.formState.errors.saldo_actual && (
-                <p className="text-sm text-destructive">
-                  {editForm.formState.errors.saldo_actual.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="edit-estado">Estado</Label>
               <select
                 id="edit-estado"
@@ -535,66 +442,6 @@ export default function Servicios() {
               <Button type="submit" disabled={updateServicio.isPending}>
                 {updateServicio.isPending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar Cambios
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog Aumentar Saldo */}
-      <Dialog open={showAumentarDialog} onOpenChange={setShowAumentarDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Aumentar Saldo</DialogTitle>
-            <DialogDescription>
-              Aumentar saldo para: <strong>{selectedServicio?.nombre}</strong>
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={aumentarSaldoForm.handleSubmit(handleAumentarSaldo)} className="space-y-4">
-            <div className="rounded-lg border p-4 bg-muted/50">
-              <p className="text-sm text-muted-foreground">Saldo Actual</p>
-              <p className="text-2xl font-bold">Bs. {selectedServicio?.saldo_actual.toFixed(2)}</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="monto">Monto a Aumentar (Bs.) *</Label>
-              <Input
-                id="monto"
-                type="number"
-                step="0.01"
-                min="0.01"
-                {...aumentarSaldoForm.register('monto', { valueAsNumber: true })}
-                placeholder="0.00"
-              />
-              {aumentarSaldoForm.formState.errors.monto && (
-                <p className="text-sm text-destructive">
-                  {aumentarSaldoForm.formState.errors.monto.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="observacion-aumentar">Observación</Label>
-              <Textarea
-                id="observacion-aumentar"
-                {...aumentarSaldoForm.register('observacion')}
-                placeholder="Ej: Recarga de Bs. 1000"
-                rows={3}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowAumentarDialog(false);
-                  setSelectedServicio(null);
-                  aumentarSaldoForm.reset();
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={createMovimiento.isPending}>
-                {createMovimiento.isPending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-                Aumentar Saldo
               </Button>
             </DialogFooter>
           </form>
