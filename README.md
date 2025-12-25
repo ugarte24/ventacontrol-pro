@@ -128,6 +128,16 @@ ventacontrol-pro/
 │   │   ├── users.service.ts
 │   │   └── clients.service.ts
 │   └── types/             # Definiciones TypeScript
+├── supabase/
+│   ├── functions/         # Edge Functions
+│   │   ├── get-user-email/
+│   │   └── update-user-email/
+│   └── config.toml        # Configuración de Supabase CLI
+├── scripts/               # Scripts de despliegue
+│   ├── deploy-functions.ps1
+│   ├── deploy-functions.sh
+│   └── deploy-with-npx.ps1
+├── migrations/            # Migraciones de base de datos
 ├── public/                # Archivos estáticos
 ├── documentos/            # Documentación del proyecto
 ├── package.json
