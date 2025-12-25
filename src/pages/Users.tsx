@@ -69,6 +69,8 @@ import {
   X
 } from 'lucide-react';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useToggleUserStatus, useUpdateUserPassword } from '@/hooks/useUsers';
+import { usersService } from '@/services/users.service';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -90,6 +92,7 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').optional(),
   usuario: z.string().min(3, 'El usuario debe tener al menos 3 caracteres').optional(),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   rol: z.enum(['admin', 'vendedor']).optional(),
   estado: z.enum(['activo', 'inactivo']).optional(),
 });
@@ -244,11 +247,32 @@ export default function Users() {
     }
   };
 
-  const openEditDialog = (user: UserType) => {
+  const openEditDialog = async (user: UserType) => {
     setSelectedUser(user);
+    // Intentar obtener el email del usuario
+    let userEmail = user.email || '';
+    
+    try {
+      // Solo intentar obtener el email si es el usuario actual o si ya está en el objeto
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser && currentUser.id === user.id && currentUser.email) {
+        userEmail = currentUser.email;
+      } else {
+        // Intentar obtener con getById (solo funcionará para el usuario actual)
+        const userWithEmail = await usersService.getById(user.id);
+        if (userWithEmail?.email) {
+          userEmail = userWithEmail.email;
+        }
+      }
+    } catch (error) {
+      // Si no se puede obtener el email, usar el que ya está en el objeto o dejar vacío
+      console.warn('No se pudo obtener el email del usuario:', error);
+    }
+    
     updateForm.reset({
       nombre: user.nombre,
       usuario: user.usuario,
+      email: userEmail,
       rol: user.rol,
       estado: user.estado,
     });
@@ -692,6 +716,20 @@ export default function Users() {
                   {updateForm.formState.errors.usuario && (
                     <p className="text-sm text-destructive">
                       {updateForm.formState.errors.usuario?.message}
+                    </p>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    {...updateForm.register('email')}
+                    placeholder="usuario@example.com"
+                  />
+                  {updateForm.formState.errors.email && (
+                    <p className="text-sm text-destructive">
+                      {updateForm.formState.errors.email?.message}
                     </p>
                   )}
                 </div>

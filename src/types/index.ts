@@ -6,6 +6,7 @@ export interface User {
   id: string;
   nombre: string;
   usuario: string;
+  email?: string;
   rol: UserRole;
   estado: 'activo' | 'inactivo';
   fecha_creacion: string;

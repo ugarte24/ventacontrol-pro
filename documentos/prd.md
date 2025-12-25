@@ -575,9 +575,9 @@ Los reportes se generan dinámicamente a partir de:
 
 ---
 
-**Versión del PRD:** 2.8  
+**Versión del PRD:** 2.9  
 **Última actualización:** Diciembre 2025  
-**Estado del Proyecto:** v2.8.0 - Sistema Completo con Servicios en Arqueo de Caja
+**Estado del Proyecto:** v2.9.0 - Sistema Completo con Gestión de Emails de Usuarios
 
 ### 📝 Notas Técnicas Importantes
 

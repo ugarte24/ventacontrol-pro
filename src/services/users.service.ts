@@ -15,6 +15,7 @@ export interface CreateUserData {
 export interface UpdateUserData {
   nombre?: string;
   usuario?: string;
+  email?: string;
   rol?: 'admin' | 'vendedor';
   estado?: 'activo' | 'inactivo';
 }
@@ -27,6 +28,10 @@ export const usersService = {
       .order('fecha_creacion', { ascending: false });
 
     if (error) throw new Error(handleSupabaseError(error));
+    
+    // Nota: Los emails están en auth.users y requieren Admin API para obtenerlos
+    // Por ahora retornamos los usuarios sin email, el email se puede obtener
+    // individualmente cuando se necesita editar un usuario específico
     return data as User[];
   },
 
@@ -41,6 +46,50 @@ export const usersService = {
       if (error.code === 'PGRST116') return null;
       throw new Error(handleSupabaseError(error));
     }
+    
+    // Intentar obtener email
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      // Si es el usuario actual, obtener su email de la sesión
+      if (currentUser && currentUser.id === id && currentUser.email) {
+        return { ...data, email: currentUser.email } as User;
+      }
+      
+      // Si el usuario actual es admin, intentar obtener email usando Edge Function
+      if (currentUser) {
+        const { data: currentUserData } = await supabase
+          .from('usuarios')
+          .select('rol')
+          .eq('id', currentUser.id)
+          .single();
+        
+        if (currentUserData?.rol === 'admin') {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            try {
+              const { data: functionData, error: functionError } = await supabase.functions.invoke('get-user-email', {
+                body: { userId: id },
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              });
+              
+              if (!functionError && functionData?.email) {
+                return { ...data, email: functionData.email } as User;
+              }
+            } catch (err) {
+              // Si la Edge Function no existe o falla, continuar sin email
+              console.warn(`No se pudo obtener email para usuario ${id}:`, err);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Si no se puede obtener el email, continuar sin él
+      console.warn(`No se pudo obtener email para usuario ${id}:`, err);
+    }
+    
     return data as User;
   },
 
@@ -146,10 +195,30 @@ export const usersService = {
     // Obtener timestamp de actualización en hora local
     const updatedAt = getLocalDateTimeISO();
     
+    // Separar email de otros campos (el email se actualiza en auth.users)
+    const { email, ...otherUpdates } = updates;
+    
+    // Verificar que el usuario actual tenga permisos
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      throw new Error('No estás autenticado. Por favor inicia sesión.');
+    }
+
+    // Obtener rol del usuario actual
+    const { data: currentUserData } = await supabase
+      .from('usuarios')
+      .select('rol')
+      .eq('id', currentUser.id)
+      .single();
+
+    const isAdmin = currentUserData?.rol === 'admin';
+    const isOwnUser = currentUser.id === id;
+
+    // Actualizar tabla usuarios
     const { data, error } = await supabase
       .from('usuarios')
       .update({
-        ...updates,
+        ...otherUpdates,
         updated_at: updatedAt, // Timestamp explícito en hora local
       })
       .eq('id', id)
@@ -158,9 +227,51 @@ export const usersService = {
 
     if (error) throw new Error(handleSupabaseError(error));
 
-    // Nota: Actualizar user_metadata requiere Admin API
-    // Por ahora solo actualizamos la tabla usuarios
-    // Para actualizar metadata de Auth, usa Edge Functions o Admin API
+    // Si hay email para actualizar
+    if (email && email.trim() !== '') {
+      try {
+        // Si es el usuario actual, usar auth.updateUser directamente
+        if (isOwnUser) {
+          const { error: authError } = await supabase.auth.updateUser({ email: email.trim() });
+          if (authError) {
+            throw new Error(`Error al actualizar email: ${authError.message}`);
+          }
+        }
+        // Si es admin, usar Edge Function para actualizar email de cualquier usuario
+        else if (isAdmin) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const { data: functionData, error: functionError } = await supabase.functions.invoke('update-user-email', {
+              body: {
+                userId: id,
+                email: email.trim(),
+              },
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            });
+
+            if (functionError) {
+              throw new Error(`Error al actualizar email: ${functionError.message || 'La Edge Function update-user-email no está disponible'}`);
+            }
+          } else {
+            throw new Error('No tienes una sesión activa. Por favor inicia sesión nuevamente.');
+          }
+        }
+        // Si no es admin ni el usuario actual, no permitir actualizar email
+        else {
+          throw new Error('No tienes permisos para actualizar el email de otro usuario. Solo los administradores pueden hacerlo.');
+        }
+      } catch (err: any) {
+        // Si el error es sobre permisos, lanzarlo
+        if (err.message?.includes('permisos') || err.message?.includes('permissions')) {
+          throw err;
+        }
+        // Para otros errores, solo mostrar warning pero no bloquear la actualización de otros campos
+        console.warn('Error al actualizar email:', err);
+        throw new Error(`Error al actualizar email: ${err.message || 'Error desconocido'}`);
+      }
+    }
 
     return data as User;
   },

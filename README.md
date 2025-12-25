@@ -360,6 +360,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.8.0  
+**Versión**: 2.9.0  
 **Última actualización**: Diciembre 2025  
-**Estado**: Sistema completo con Servicios en Arqueo de Caja - En producción
+**Estado**: Sistema completo con Gestión de Emails de Usuarios - En producción
