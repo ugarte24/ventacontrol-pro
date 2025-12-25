@@ -148,15 +148,34 @@ export const cashRegisterService = {
     return cuotaInicialTotal + pagosCuotasTotal;
   },
 
-  // Calcular ingresos totales del día: efectivo + QR + transferencia + crédito (cuota inicial + pagos)
+  // Calcular total de servicios transaccionados del día
+  async getTodayServicesTotal(): Promise<number> {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    const { data, error } = await supabase
+      .from('registros_servicios')
+      .select('total')
+      .eq('fecha', today);
+
+    if (error) throw new Error(handleSupabaseError(error));
+    
+    // Sumar todos los totales de servicios del día
+    // El total puede ser positivo (ingreso) o negativo (egreso)
+    return data.reduce((sum, registro) => sum + (registro.total || 0), 0);
+  },
+
+  // Calcular ingresos totales del día: efectivo + QR + transferencia + crédito (cuota inicial + pagos) + servicios
   async getTodayTotalIncome(): Promise<number> {
     const salesByMethod = await this.getTodaySalesByMethod();
     const creditReceipts = await this.getTodayCreditReceipts();
+    const servicesTotal = await this.getTodayServicesTotal();
     return (
       (salesByMethod?.efectivo || 0) +
       (salesByMethod?.qr || 0) +
       (salesByMethod?.transferencia || 0) +
-      (creditReceipts || 0)
+      (creditReceipts || 0) +
+      (servicesTotal || 0)
     );
   },
 

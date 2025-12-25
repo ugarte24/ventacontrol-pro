@@ -358,6 +358,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.7.0  
+**Versión**: 2.8.0  
 **Última actualización**: Diciembre 2025  
-**Estado**: Sistema completo con Mejoras en Gestión de Servicios - En producción
+**Estado**: Sistema completo con Servicios en Arqueo de Caja - En producción

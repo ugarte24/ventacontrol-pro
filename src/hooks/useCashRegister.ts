@@ -57,6 +57,14 @@ export function useTodayCreditReceipts() {
   });
 }
 
+export function useTodayServicesTotal() {
+  return useQuery({
+    queryKey: ['todayServicesTotal'],
+    queryFn: () => cashRegisterService.getTodayServicesTotal(),
+    refetchInterval: 30000, // Refrescar cada 30 segundos
+  });
+}
+
 export function useOpenCashRegister() {
   const queryClient = useQueryClient();
 

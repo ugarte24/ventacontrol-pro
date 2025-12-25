@@ -53,7 +53,8 @@ import {
   useCloseCashRegister,
   useUpdateCashRegister,
   useTodaySalesByMethod,
-  useTodayCreditReceipts
+  useTodayCreditReceipts,
+  useTodayServicesTotal
 } from '@/hooks/useCashRegister';
 import { useAuth } from '@/contexts';
 import { toast } from 'sonner';
@@ -96,7 +97,8 @@ export default function CashRegister() {
   const { data: todayTotalSales = 0 } = useTodayTotalSales();
   const { data: salesByMethod = { efectivo: 0, qr: 0, transferencia: 0, credito: 0 }, isLoading: loadingByMethod } = useTodaySalesByMethod();
   const { data: creditReceipts = 0, isLoading: loadingCreditReceipts } = useTodayCreditReceipts();
-  const totalVentasHoy = (salesByMethod?.efectivo || 0) + (salesByMethod?.qr || 0) + (salesByMethod?.transferencia || 0) + (creditReceipts || 0);
+  const { data: servicesTotal = 0, isLoading: loadingServicesTotal } = useTodayServicesTotal();
+  const totalVentasHoy = (salesByMethod?.efectivo || 0) + (salesByMethod?.qr || 0) + (salesByMethod?.transferencia || 0) + (creditReceipts || 0) + (servicesTotal || 0);
   
   const openRegisterMutation = useOpenCashRegister();
   const closeRegisterMutation = useCloseCashRegister();
@@ -380,10 +382,10 @@ export default function CashRegister() {
                       <p className="font-display text-lg sm:text-xl font-semibold">Desglose del día</p>
                     </div>
                   </div>
-                  {loadingByMethod || loadingCreditReceipts ? (
+                  {loadingByMethod || loadingCreditReceipts || loadingServicesTotal ? (
                     <Skeleton className="h-20 w-full" />
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                       <div className="rounded-lg border p-3 bg-muted/30">
                         <p className="text-xs text-muted-foreground">Efectivo</p>
                         <p className="text-lg font-semibold">Bs. {salesByMethod.efectivo.toFixed(2)}</p>
@@ -399,6 +401,12 @@ export default function CashRegister() {
                       <div className="rounded-lg border p-3 bg-muted/30">
                         <p className="text-xs text-muted-foreground">Crédito (ingresos)</p>
                         <p className="text-lg font-semibold">Bs. {creditReceipts.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-lg border p-3 bg-muted/30">
+                        <p className="text-xs text-muted-foreground">Servicios</p>
+                        <p className={`text-lg font-semibold ${servicesTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {servicesTotal >= 0 ? '+' : ''}Bs. {servicesTotal.toFixed(2)}
+                        </p>
                       </div>
                     </div>
                   )}

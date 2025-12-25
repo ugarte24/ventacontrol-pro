@@ -36,19 +36,19 @@ const menuSections = [
     ],
   },
   {
-    label: 'Servicios',
-    items: [
-      { title: 'Servicios', url: '/servicios', icon: Wrench, roles: ['admin', 'vendedor'] },
-      { title: 'Registro Servicios', url: '/servicios/registro', icon: Calendar, roles: ['admin', 'vendedor'] },
-      { title: 'Historial Servicios', url: '/servicios/historial', icon: History, roles: ['admin', 'vendedor'] },
-    ],
-  },
-  {
     label: 'Inventario',
     items: [
       { title: 'Productos', url: '/productos', icon: Package, roles: ['admin'] },
       { title: 'Categorías', url: '/categorias', icon: FolderTree, roles: ['admin'] },
       { title: 'Movimientos Inventario', url: '/inventario/movimientos', icon: ArrowLeftRight, roles: ['admin'] },
+    ],
+  },
+  {
+    label: 'Servicios',
+    items: [
+      { title: 'Servicios', url: '/servicios', icon: Wrench, roles: ['admin', 'vendedor'] },
+      { title: 'Registro Servicios', url: '/servicios/registro', icon: Calendar, roles: ['admin', 'vendedor'] },
+      { title: 'Historial Servicios', url: '/servicios/historial', icon: History, roles: ['admin', 'vendedor'] },
     ],
   },
   {
