@@ -503,6 +503,13 @@ Los reportes se generan dinámicamente a partir de:
 - ✅ Inclusión de servicios en el arqueo de caja: El total transaccionado de servicios del día se incluye automáticamente en el cálculo del arqueo
 - ✅ Reorganización del menú: La sección de Servicios ahora aparece debajo de Inventario en el menú lateral
 
+**Cambios en v2.9.0:**
+- ✅ Campo de email agregado al formulario de editar usuario
+- ✅ Administradores pueden ver y actualizar el email de cualquier usuario
+- ✅ Edge Functions implementadas para gestión de emails (`get-user-email`, `update-user-email`)
+- ✅ Scripts de despliegue automatizados para Edge Functions
+- ✅ Documentación completa de Edge Functions y despliegue
+
 ### 🔜 v3.0 - Pendiente de Implementación 
 
 **Funcionalidades Futuras:**
