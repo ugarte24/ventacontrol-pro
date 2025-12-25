@@ -499,6 +499,10 @@ Los reportes se generan dinámicamente a partir de:
 - Optimización de performance con React Query caching
 - **Gestión de fechas**: Sistema robusto que preserva la fecha local del cliente en todos los timestamps
 
+**Cambios en v2.8.0:**
+- ✅ Inclusión de servicios en el arqueo de caja: El total transaccionado de servicios del día se incluye automáticamente en el cálculo del arqueo
+- ✅ Reorganización del menú: La sección de Servicios ahora aparece debajo de Inventario en el menú lateral
+
 ### 🔜 v3.0 - Pendiente de Implementación 
 
 **Funcionalidades Futuras:**
