@@ -112,7 +112,6 @@ export interface Servicio {
   id: string;
   nombre: string;
   descripcion?: string;
-  saldo_actual: number;
   estado: 'activo' | 'inactivo';
   created_at?: string;
   updated_at?: string;
@@ -138,7 +137,7 @@ export interface RegistroServicio {
   fecha: string;
   saldo_inicial: number;
   saldo_final: number;
-  monto_transaccionado: number;
+  total: number;
   monto_aumentado: number;
   id_usuario: string;
   observacion?: string;

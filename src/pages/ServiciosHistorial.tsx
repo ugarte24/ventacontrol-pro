@@ -19,31 +19,17 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { 
   Calendar,
   TrendingUp,
   TrendingDown,
   Wallet,
-  Loader,
-  Trash2,
   Search
 } from 'lucide-react';
 import { useServicios } from '@/hooks/useServicios';
 import { 
   useRegistrosServicios,
-  useDeleteRegistroServicio,
-  useMovimientosServicios,
-  useDeleteMovimientoServicio
+  useMovimientosServicios
 } from '@/hooks/useServicios';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -75,10 +61,6 @@ export default function ServiciosHistorial() {
   const [fechaHasta, setFechaHasta] = useState(fechaHoy);
   const [idServicioFilter, setIdServicioFilter] = useState<string>('todos');
   const [activeTab, setActiveTab] = useState<'movimientos' | 'registros'>('movimientos');
-  const [showDeleteMovimientoDialog, setShowDeleteMovimientoDialog] = useState(false);
-  const [showDeleteRegistroDialog, setShowDeleteRegistroDialog] = useState(false);
-  const [movimientoToDelete, setMovimientoToDelete] = useState<string | null>(null);
-  const [registroToDelete, setRegistroToDelete] = useState<string | null>(null);
   const [currentPageMovimientos, setCurrentPageMovimientos] = useState(1);
   const [currentPageRegistros, setCurrentPageRegistros] = useState(1);
   const itemsPerPage = 20;
@@ -95,8 +77,6 @@ export default function ServiciosHistorial() {
     fechaHasta,
   });
 
-  const deleteMovimiento = useDeleteMovimientoServicio();
-  const deleteRegistro = useDeleteRegistroServicio();
 
   // Crear mapa de servicios para búsqueda rápida
   const serviciosMap = useMemo(() => {
@@ -107,29 +87,6 @@ export default function ServiciosHistorial() {
     return map;
   }, [servicios]);
 
-  const handleDeleteMovimiento = async () => {
-    if (!movimientoToDelete) return;
-
-    try {
-      await deleteMovimiento.mutateAsync(movimientoToDelete);
-      setShowDeleteMovimientoDialog(false);
-      setMovimientoToDelete(null);
-    } catch (error) {
-      // El error ya se maneja en el hook
-    }
-  };
-
-  const handleDeleteRegistro = async () => {
-    if (!registroToDelete) return;
-
-    try {
-      await deleteRegistro.mutateAsync(registroToDelete);
-      setShowDeleteRegistroDialog(false);
-      setRegistroToDelete(null);
-    } catch (error) {
-      // El error ya se maneja en el hook
-    }
-  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -286,7 +243,6 @@ export default function ServiciosHistorial() {
                           <TableHead className="text-right">Saldo Anterior</TableHead>
                           <TableHead className="text-right">Saldo Nuevo</TableHead>
                           <TableHead>Observación</TableHead>
-                          <TableHead className="text-center">Acciones</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -320,19 +276,6 @@ export default function ServiciosHistorial() {
                             </TableCell>
                             <TableCell className="text-muted-foreground max-w-[200px] truncate">
                               {movimiento.observacion || '-'}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setMovimientoToDelete(movimiento.id);
-                                  setShowDeleteMovimientoDialog(true);
-                                }}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -419,11 +362,10 @@ export default function ServiciosHistorial() {
                           <TableHead>Fecha</TableHead>
                           <TableHead>Servicio</TableHead>
                           <TableHead className="text-right">Saldo Inicial</TableHead>
-                          <TableHead className="text-right">Saldo Final</TableHead>
                           <TableHead className="text-right">Aumentado</TableHead>
-                          <TableHead className="text-right">Transaccionado</TableHead>
+                          <TableHead className="text-right">Saldo Final</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
                           <TableHead>Observación</TableHead>
-                          <TableHead className="text-center">Acciones</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -434,10 +376,9 @@ export default function ServiciosHistorial() {
                               {serviciosMap.get(registro.id_servicio) || '-'}
                             </TableCell>
                             <TableCell className="text-right">
-                              Bs. {registro.saldo_inicial.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold">
-                              Bs. {registro.saldo_final.toFixed(2)}
+                              <span className="font-semibold">
+                                Bs. {registro.saldo_inicial.toFixed(2)}
+                              </span>
                             </TableCell>
                             <TableCell className="text-right">
                               {registro.monto_aumentado > 0 ? (
@@ -449,26 +390,18 @@ export default function ServiciosHistorial() {
                               )}
                             </TableCell>
                             <TableCell className="text-right">
-                              <span className={registro.monto_transaccionado >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                                {registro.monto_transaccionado >= 0 ? '+' : ''}
-                                Bs. {registro.monto_transaccionado.toFixed(2)}
+                              <span className="font-semibold">
+                                Bs. {registro.saldo_final.toFixed(2)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className={registro.total >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                {registro.total >= 0 ? '+' : ''}
+                                Bs. {registro.total.toFixed(2)}
                               </span>
                             </TableCell>
                             <TableCell className="text-muted-foreground max-w-[200px] truncate">
                               {registro.observacion || '-'}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setRegistroToDelete(registro.id);
-                                  setShowDeleteRegistroDialog(true);
-                                }}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -532,55 +465,6 @@ export default function ServiciosHistorial() {
         </Tabs>
       </div>
 
-      {/* Dialog Eliminar Movimiento */}
-      <AlertDialog open={showDeleteMovimientoDialog} onOpenChange={setShowDeleteMovimientoDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar movimiento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción revertirá el aumento de saldo y no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setMovimientoToDelete(null)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteMovimiento}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteMovimiento.isPending}
-            >
-              {deleteMovimiento.isPending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Dialog Eliminar Registro */}
-      <AlertDialog open={showDeleteRegistroDialog} onOpenChange={setShowDeleteRegistroDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción eliminará el registro diario y no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setRegistroToDelete(null)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteRegistro}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteRegistro.isPending}
-            >
-              {deleteRegistro.isPending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DashboardLayout>
   );
 }

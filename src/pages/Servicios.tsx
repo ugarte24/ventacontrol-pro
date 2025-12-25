@@ -21,20 +21,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { 
   Plus, 
   Edit, 
-  Trash2,
   Loader,
   X,
   Search
@@ -42,8 +31,7 @@ import {
 import { 
   useServicios, 
   useCreateServicio, 
-  useUpdateServicio, 
-  useDeleteServicio
+  useUpdateServicio
 } from '@/hooks/useServicios';
 import { useAuth } from '@/contexts';
 import { Servicio } from '@/types';
@@ -68,21 +56,25 @@ const createServicioSchema = z.object({
   descripcion: z.string().optional(),
 });
 
+const editServicioSchema = z.object({
+  nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+  descripcion: z.string().optional(),
+  estado: z.enum(['activo', 'inactivo']),
+});
+
 type CreateServicioForm = z.infer<typeof createServicioSchema>;
+type EditServicioForm = z.infer<typeof editServicioSchema>;
 
 export default function Servicios() {
   const { user } = useAuth();
   const { data: servicios, isLoading } = useServicios(user?.rol === 'admin');
   const createServicio = useCreateServicio();
   const updateServicio = useUpdateServicio();
-  const deleteServicio = useDeleteServicio();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
-  const [servicioToDelete, setServicioToDelete] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -94,8 +86,8 @@ export default function Servicios() {
     },
   });
 
-  const editForm = useForm<CreateServicioForm>({
-    resolver: zodResolver(createServicioSchema),
+  const editForm = useForm<EditServicioForm>({
+    resolver: zodResolver(editServicioSchema),
   });
 
   // Filtrar servicios por término de búsqueda
@@ -122,11 +114,10 @@ export default function Servicios() {
 
   const handleCreateServicio = async (data: CreateServicioForm) => {
     try {
-      // Solo enviar nombre y descripción, el saldo_actual será 0 por defecto y estado será 'activo'
+      // Solo enviar nombre y descripción, el estado será 'activo' por defecto
       await createServicio.mutateAsync({
         nombre: data.nombre,
         descripcion: data.descripcion,
-        saldo_actual: 0,
         estado: 'activo',
       });
       setShowCreateDialog(false);
@@ -136,13 +127,17 @@ export default function Servicios() {
     }
   };
 
-  const handleEditServicio = async (data: CreateServicioForm) => {
+  const handleEditServicio = async (data: EditServicioForm) => {
     if (!selectedServicio) return;
 
     try {
       await updateServicio.mutateAsync({
         id: selectedServicio.id,
-        updates: data,
+        updates: {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          estado: data.estado,
+        },
       });
       setShowEditDialog(false);
       setSelectedServicio(null);
@@ -152,23 +147,13 @@ export default function Servicios() {
     }
   };
 
-  const handleDeleteServicio = async () => {
-    if (!servicioToDelete) return;
-
-    try {
-      await deleteServicio.mutateAsync(servicioToDelete);
-      setShowDeleteDialog(false);
-      setServicioToDelete(null);
-    } catch (error) {
-      // El error ya se maneja en el hook
-    }
-  };
 
   const handleOpenEditDialog = (servicio: Servicio) => {
     setSelectedServicio(servicio);
     editForm.reset({
       nombre: servicio.nombre,
       descripcion: servicio.descripcion || '',
+      estado: servicio.estado,
     });
     setShowEditDialog(true);
   };
@@ -251,26 +236,13 @@ export default function Servicios() {
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
                             {isAdmin && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleOpenEditDialog(servicio)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setServicioToDelete(servicio.id);
-                                    setShowDeleteDialog(true);
-                                  }}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditDialog(servicio)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
                             )}
                           </div>
                         </TableCell>
@@ -448,30 +420,6 @@ export default function Servicios() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Eliminar */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar servicio?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminarán todos los registros y movimientos asociados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setServicioToDelete(null)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteServicio}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteServicio.isPending}
-            >
-              {deleteServicio.isPending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DashboardLayout>
   );
 }

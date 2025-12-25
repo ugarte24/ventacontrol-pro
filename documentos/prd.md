@@ -248,7 +248,7 @@ En el negocio no existe un control digital de inventarios, clientes ni ventas. L
   fecha: string;                   // YYYY-MM-DD (único por servicio y fecha)
   saldo_inicial: number;           // Saldo al inicio del día
   saldo_final: number;             // Saldo al final del día
-  monto_transaccionado: number;    // Calculado: saldo_inicial + monto_aumentado - saldo_final
+  total: number;                    // Calculado: saldo_inicial + monto_aumentado - saldo_final (renombrado de monto_transaccionado)
   monto_aumentado: number;         // Suma de todos los aumentos del día (calculado automáticamente o editable manualmente)
   id_usuario: string;              // Usuario que registró
   observacion?: string;
@@ -571,9 +571,9 @@ Los reportes se generan dinámicamente a partir de:
 
 ---
 
-**Versión del PRD:** 2.6  
-**Última actualización:** Diciembre 2024  
-**Estado del Proyecto:** v2.6.0 - Sistema Completo con Edición Manual de Monto Aumentado en Servicios
+**Versión del PRD:** 2.7  
+**Última actualización:** Diciembre 2025  
+**Estado del Proyecto:** v2.7.0 - Sistema Completo con Mejoras en Gestión de Servicios
 
 ### 📝 Notas Técnicas Importantes
 

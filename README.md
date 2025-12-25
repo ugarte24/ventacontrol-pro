@@ -234,6 +234,12 @@ ventacontrol-pro/
 - ✅ **Mejoras de interfaz:**
   - ✅ Versión del sistema visible en el sidebar
   - ✅ Constantes centralizadas para fácil mantenimiento
+  - ✅ Renombrado `monto_transaccionado` a `total` en registros de servicios
+  - ✅ Mejoras en el guardado automático de `monto_aumentado`
+  - ✅ Eliminación de la opción de eliminar servicios
+  - ✅ Corrección del guardado del estado en editar servicio
+  - ✅ Mejoras en la UI del diálogo "Aumentar Saldo"
+  - ✅ Orden descendente en el historial de servicios
 - ✅ **Paginación en listados grandes:**
   - ✅ Paginación implementada en todas las tablas del sistema (20 elementos por página)
   - ✅ Controles de navegación con números de página y elipsis
@@ -346,6 +352,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.6.0  
+**Versión**: 2.7.0  
 **Última actualización**: Diciembre 2024  
 **Estado**: Sistema completo con Ventas a Crédito, Gestión de Servicios y Optimizaciones Móviles - En producción

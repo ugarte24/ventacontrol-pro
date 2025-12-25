@@ -139,6 +139,13 @@ export function AppSidebar() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 h-9"
+              autoFocus={false}
+              onFocus={(e) => {
+                // Prevenir auto-focus en móvil
+                if (window.innerWidth < 768) {
+                  e.target.blur();
+                }
+              }}
             />
           </div>
         )}

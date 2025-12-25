@@ -173,6 +173,10 @@ const Sidebar = React.forwardRef<
             } as React.CSSProperties
           }
           side={side}
+          onOpenAutoFocus={(e) => {
+            // Prevenir auto-focus cuando se abre el menú en móvil
+            e.preventDefault();
+          }}
         >
           <SheetTitle className="sr-only">Menú de navegación</SheetTitle>
           <SheetDescription className="sr-only">

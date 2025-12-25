@@ -325,8 +325,7 @@ export default function Dashboard() {
                         )}
                       </div>
                       <div className="ml-4 text-right flex-shrink-0">
-                        <p className="font-semibold text-foreground">Bs. {servicio.saldo_actual.toFixed(2)}</p>
-                        <Badge variant={servicio.estado === 'activo' ? 'default' : 'secondary'} className="mt-1">
+                        <Badge variant={servicio.estado === 'activo' ? 'default' : 'secondary'}>
                           {servicio.estado}
                         </Badge>
                       </div>

@@ -39,6 +39,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -66,7 +79,9 @@ import {
   Loader,
   X,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Check,
+  ChevronsUpDown
 } from 'lucide-react';
 import { 
   useProducts, 
@@ -85,6 +100,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { storageService } from '@/services/storage.service';
+import { cn } from '@/lib/utils';
 
 // Esquemas de validación
 const createProductSchema = z.object({
@@ -134,6 +150,25 @@ export default function Products() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [editCategoryOpen, setEditCategoryOpen] = useState(false);
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [editCategorySearchTerm, setEditCategorySearchTerm] = useState('');
+
+  // Filtrar categorías por término de búsqueda
+  const filteredCategories = useMemo(() => {
+    if (!categorySearchTerm) return categories;
+    return categories.filter((cat) =>
+      cat.nombre.toLowerCase().includes(categorySearchTerm.toLowerCase())
+    );
+  }, [categories, categorySearchTerm]);
+
+  const filteredEditCategories = useMemo(() => {
+    if (!editCategorySearchTerm) return categories;
+    return categories.filter((cat) =>
+      cat.nombre.toLowerCase().includes(editCategorySearchTerm.toLowerCase())
+    );
+  }, [categories, editCategorySearchTerm]);
   
   // Estados para imagen en creación
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -723,7 +758,13 @@ export default function Products() {
         </Card>
 
         {/* Create Product Dialog */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) {
+            setCategorySearchTerm('');
+            setCategoryOpen(false);
+          }
+        }}>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <form onSubmit={createForm.handleSubmit(handleCreateProduct)}>
               <DialogHeader>
@@ -788,28 +829,75 @@ export default function Products() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="id_categoria">Categoría</Label>
-                    <Select
-                      value={createForm.watch('id_categoria') || 'none'}
-                      onValueChange={(value) => {
-                        if (value === 'none') {
-                          createForm.setValue('id_categoria', undefined);
-                        } else {
-                          createForm.setValue('id_categoria', value);
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar categoría" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin categoría</SelectItem>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={categoryOpen} onOpenChange={setCategoryOpen} modal={false}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between h-10"
+                        >
+                          {createForm.watch('id_categoria') ? (
+                            categories.find((cat) => cat.id === createForm.watch('id_categoria'))?.nombre || 'Seleccionar categoría'
+                          ) : (
+                            <span className="text-muted-foreground">Sin categoría</span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[10001]" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput 
+                            placeholder="Buscar categoría..." 
+                            value={categorySearchTerm}
+                            onValueChange={setCategorySearchTerm}
+                          />
+                          <CommandList>
+                            <CommandGroup>
+                              <CommandItem
+                                value="none"
+                                onSelect={() => {
+                                  createForm.setValue('id_categoria', undefined);
+                                  setCategoryOpen(false);
+                                  setCategorySearchTerm('');
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    !createForm.watch('id_categoria') ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                Sin categoría
+                              </CommandItem>
+                              {filteredCategories.length === 0 ? (
+                                <CommandEmpty>No se encontraron categorías.</CommandEmpty>
+                              ) : (
+                                filteredCategories.map((cat) => (
+                                  <CommandItem
+                                    key={cat.id}
+                                    value={cat.id}
+                                    onSelect={() => {
+                                      createForm.setValue('id_categoria', cat.id);
+                                      setCategoryOpen(false);
+                                      setCategorySearchTerm('');
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        createForm.watch('id_categoria') === cat.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {cat.nombre}
+                                  </CommandItem>
+                                ))
+                              )}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -943,7 +1031,13 @@ export default function Products() {
         </Dialog>
 
         {/* Edit Product Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) {
+            setEditCategorySearchTerm('');
+            setEditCategoryOpen(false);
+          }
+        }}>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <form onSubmit={updateForm.handleSubmit(handleUpdateProduct)}>
               <DialogHeader>
@@ -1004,28 +1098,75 @@ export default function Products() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="edit-id_categoria">Categoría</Label>
-                    <Select
-                      value={updateForm.watch('id_categoria') || selectedProduct?.id_categoria || 'none'}
-                      onValueChange={(value) => {
-                        if (value === 'none') {
-                          updateForm.setValue('id_categoria', undefined);
-                        } else {
-                          updateForm.setValue('id_categoria', value);
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar categoría" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin categoría</SelectItem>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={editCategoryOpen} onOpenChange={setEditCategoryOpen} modal={false}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between h-10"
+                        >
+                          {updateForm.watch('id_categoria') || selectedProduct?.id_categoria ? (
+                            categories.find((cat) => cat.id === (updateForm.watch('id_categoria') || selectedProduct?.id_categoria))?.nombre || 'Seleccionar categoría'
+                          ) : (
+                            <span className="text-muted-foreground">Sin categoría</span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[10001]" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput 
+                            placeholder="Buscar categoría..." 
+                            value={editCategorySearchTerm}
+                            onValueChange={setEditCategorySearchTerm}
+                          />
+                          <CommandList>
+                            <CommandGroup>
+                              <CommandItem
+                                value="none"
+                                onSelect={() => {
+                                  updateForm.setValue('id_categoria', undefined);
+                                  setEditCategoryOpen(false);
+                                  setEditCategorySearchTerm('');
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    !(updateForm.watch('id_categoria') || selectedProduct?.id_categoria) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                Sin categoría
+                              </CommandItem>
+                              {filteredEditCategories.length === 0 ? (
+                                <CommandEmpty>No se encontraron categorías.</CommandEmpty>
+                              ) : (
+                                filteredEditCategories.map((cat) => (
+                                  <CommandItem
+                                    key={cat.id}
+                                    value={cat.id}
+                                    onSelect={() => {
+                                      updateForm.setValue('id_categoria', cat.id);
+                                      setEditCategoryOpen(false);
+                                      setEditCategorySearchTerm('');
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        (updateForm.watch('id_categoria') || selectedProduct?.id_categoria) === cat.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {cat.nombre}
+                                  </CommandItem>
+                                ))
+                              )}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <div className="grid gap-2">

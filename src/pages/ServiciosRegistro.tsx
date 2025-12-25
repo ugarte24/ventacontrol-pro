@@ -22,16 +22,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -46,8 +36,7 @@ import {
   CheckCircle2,
   XCircle,
   MoreVertical,
-  Edit,
-  Trash2
+  Edit
 } from 'lucide-react';
 import { useServicios } from '@/hooks/useServicios';
 import { 
@@ -55,12 +44,12 @@ import {
   useRegistroServicioPorFecha,
   useCreateRegistroServicio,
   useUpdateRegistroServicio,
-  useDeleteRegistroServicio,
   useMovimientosServicios,
-  useCreateMovimientoServicio
+  useCreateMovimientoServicio,
+  useUpdateMovimientoServicio
 } from '@/hooks/useServicios';
 import { useAuth } from '@/contexts';
-import { Servicio, RegistroServicio } from '@/types';
+import { Servicio, RegistroServicio, MovimientoServicio } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -132,11 +121,11 @@ export default function ServiciosRegistro() {
   const [fecha, setFecha] = useState(fechaHoy);
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
   const [showRegistroDialog, setShowRegistroDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAumentarDialog, setShowAumentarDialog] = useState(false);
-  const [registroToDelete, setRegistroToDelete] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+  const [editingMovimiento, setEditingMovimiento] = useState<string | null>(null);
+  const [editMontoValue, setEditMontoValue] = useState<string>('');
 
   const { data: servicios, isLoading: loadingServicios } = useServicios();
   const { data: registros, isLoading: loadingRegistros } = useRegistrosServicios({
@@ -145,15 +134,15 @@ export default function ServiciosRegistro() {
   });
 
   // Obtener movimientos del día para calcular monto aumentado
-  const { data: movimientos } = useMovimientosServicios({
+  const { data: movimientos, refetch: refetchMovimientos, isLoading: loadingMovimientos } = useMovimientosServicios({
     fechaDesde: fecha,
     fechaHasta: fecha,
   });
 
   const createRegistro = useCreateRegistroServicio();
   const updateRegistro = useUpdateRegistroServicio();
-  const deleteRegistro = useDeleteRegistroServicio();
   const createMovimiento = useCreateMovimientoServicio();
+  const updateMovimiento = useUpdateMovimientoServicio();
 
   const registroForm = useForm<RegistroForm>({
     resolver: zodResolver(registroSchema),
@@ -172,24 +161,57 @@ export default function ServiciosRegistro() {
     },
   });
 
-  // Crear mapa de registros por servicio
+  // Crear mapa de registros por servicio (para la fecha seleccionada)
   const registrosPorServicio = useMemo(() => {
     const map = new Map<string, RegistroServicio>();
     registros?.forEach(reg => {
-      map.set(reg.id_servicio, reg);
+      if (reg.fecha === fecha) {
+        map.set(reg.id_servicio, reg);
+      }
     });
     return map;
-  }, [registros]);
+  }, [registros, fecha]);
 
-  // Crear mapa de movimientos por servicio
+  // Crear mapa de último saldo final por servicio (del último registro antes de la fecha seleccionada)
+  const ultimoSaldoPorServicio = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!registros) return map;
+    
+    // Agrupar registros por servicio y encontrar el más reciente antes de la fecha seleccionada
+    const registrosPorServicio = new Map<string, RegistroServicio[]>();
+    registros.forEach(reg => {
+      if (!registrosPorServicio.has(reg.id_servicio)) {
+        registrosPorServicio.set(reg.id_servicio, []);
+      }
+      registrosPorServicio.get(reg.id_servicio)!.push(reg);
+    });
+    
+    // Para cada servicio, encontrar el registro más reciente antes de la fecha seleccionada
+    registrosPorServicio.forEach((regs, idServicio) => {
+      const registrosAntes = regs.filter(r => r.fecha < fecha);
+      if (registrosAntes.length > 0) {
+        const masReciente = registrosAntes.reduce((prev, curr) => 
+          curr.fecha > prev.fecha ? curr : prev
+        );
+        map.set(idServicio, masReciente.saldo_final);
+      }
+    });
+    
+    return map;
+  }, [registros, fecha]);
+
+  // Crear mapa de movimientos por servicio (solo aumentos del día seleccionado)
   const movimientosPorServicio = useMemo(() => {
     const map = new Map<string, number>();
     movimientos?.forEach(mov => {
-      const actual = map.get(mov.id_servicio) || 0;
-      map.set(mov.id_servicio, actual + mov.monto);
+      // Solo contar movimientos de tipo 'aumento' y de la fecha seleccionada
+      if (mov.tipo === 'aumento' && mov.fecha === fecha) {
+        const actual = map.get(mov.id_servicio) || 0;
+        map.set(mov.id_servicio, actual + mov.monto);
+      }
     });
     return map;
-  }, [movimientos]);
+  }, [movimientos, fecha]);
 
   // Paginación
   const totalPages = Math.ceil((servicios?.length || 0) / itemsPerPage);
@@ -213,17 +235,19 @@ export default function ServiciosRegistro() {
     
     if (registroExistente) {
       // Si existe, cargar los valores para editar
+      // Usar la suma de todos los aumentos del día en lugar del valor del registro
       registroForm.reset({
         saldo_inicial: registroExistente.saldo_inicial,
         saldo_final: registroExistente.saldo_final,
-        monto_aumentado: registroExistente.monto_aumentado,
+        monto_aumentado: montoAumentadoCalculado, // Usar la suma de todos los aumentos
         observacion: registroExistente.observacion || '',
       });
     } else {
-      // Si no existe, usar el saldo actual como inicial y final, y el monto aumentado calculado
+      // Si no existe, usar el último saldo final del servicio (o 0 si no hay registros anteriores)
+      const ultimoSaldo = ultimoSaldoPorServicio.get(servicio.id) || 0;
       registroForm.reset({
-        saldo_inicial: servicio.saldo_actual,
-        saldo_final: servicio.saldo_actual,
+        saldo_inicial: ultimoSaldo,
+        saldo_final: ultimoSaldo,
         monto_aumentado: montoAumentadoCalculado,
         observacion: '',
       });
@@ -237,11 +261,8 @@ export default function ServiciosRegistro() {
 
     try {
       const registroExistente = registrosPorServicio.get(selectedServicio.id);
-      // Usar el valor del formulario si está definido (incluso si es 0), sino usar el calculado
-      // Si data.monto_aumentado es undefined o null, usar el calculado
-      const montoAumentado = data.monto_aumentado !== undefined && data.monto_aumentado !== null 
-        ? data.monto_aumentado 
-        : (movimientosPorServicio.get(selectedServicio.id) || 0);
+      // Siempre usar la suma de todos los aumentos del día
+      const montoAumentado = movimientosPorServicio.get(selectedServicio.id) || 0;
 
       if (registroExistente) {
         // Actualizar registro existente
@@ -275,38 +296,34 @@ export default function ServiciosRegistro() {
     }
   };
 
-  const handleDeleteRegistro = async () => {
-    if (!registroToDelete) return;
-
-    try {
-      await deleteRegistro.mutateAsync(registroToDelete);
-      setShowDeleteDialog(false);
-      setRegistroToDelete(null);
-    } catch (error) {
-      // El error ya se maneja en el hook
-    }
-  };
 
   const handleAumentarSaldo = async (data: AumentarSaldoForm) => {
     if (!selectedServicio || !user) return;
 
     try {
-      const fechaActual = getLocalDateISO();
       const horaActual = getLocalTimeISO();
 
       await createMovimiento.mutateAsync({
         id_servicio: selectedServicio.id,
         tipo: 'aumento',
         monto: data.monto,
-        fecha: fechaActual,
+        fecha: fecha, // Usar la fecha seleccionada en lugar de la fecha actual
         hora: horaActual,
         id_usuario: user.id,
         observacion: data.observacion || undefined,
       });
 
+      // Esperar un momento para que el hook complete su invalidación
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Forzar refetch de movimientos para actualizar la tabla inmediatamente
+      await refetchMovimientos();
+
       setShowAumentarDialog(false);
       setSelectedServicio(null);
       aumentarSaldoForm.reset();
+      setEditingMovimiento(null);
+      setEditMontoValue('');
     } catch (error) {
       // El error ya se maneja en el hook
     }
@@ -318,8 +335,68 @@ export default function ServiciosRegistro() {
       monto: 0,
       observacion: '',
     });
+    setEditingMovimiento(null);
+    setEditMontoValue('');
     setShowAumentarDialog(true);
   };
+
+  // Filtrar movimientos del día para el servicio seleccionado
+  const movimientosDelDia: MovimientoServicio[] = useMemo(() => {
+    if (!selectedServicio || !movimientos || movimientos.length === 0) return [];
+    return movimientos
+      .filter(mov => mov.id_servicio === selectedServicio.id && mov.fecha === fecha && mov.tipo === 'aumento')
+      .sort((a, b) => {
+        // Ordenar por hora (más reciente primero)
+        const horaA = a.hora.split(':').map(Number);
+        const horaB = b.hora.split(':').map(Number);
+        const tiempoA = horaA[0] * 60 + horaA[1];
+        const tiempoB = horaB[0] * 60 + horaB[1];
+        return tiempoB - tiempoA;
+      });
+  }, [movimientos, selectedServicio, fecha]);
+
+  const handleEditMovimiento = (movimientoId: string, montoActual: number) => {
+    setEditingMovimiento(movimientoId);
+    setEditMontoValue(montoActual.toString());
+  };
+
+  const handleSaveEditMovimiento = async (movimientoId: string) => {
+    const nuevoMonto = parseFloat(editMontoValue);
+    if (isNaN(nuevoMonto) || nuevoMonto <= 0) {
+      toast.error('El monto debe ser mayor a 0');
+      return;
+    }
+
+    if (!movimientoId) {
+      toast.error('ID de movimiento no válido');
+      return;
+    }
+
+    try {
+      await updateMovimiento.mutateAsync({
+        id: movimientoId,
+        updates: { monto: nuevoMonto },
+      });
+      setEditingMovimiento(null);
+      setEditMontoValue('');
+      // Forzar refetch de movimientos para actualizar la tabla
+      await refetchMovimientos();
+    } catch (error: any) {
+      // Mostrar error más específico
+      const errorMessage = error?.message || 'Error al actualizar el movimiento';
+      if (errorMessage.includes('no encontrado') || errorMessage.includes('not found')) {
+        toast.error('No se encontró el movimiento. Por favor, recarga la página e intenta nuevamente.');
+      } else {
+        toast.error(errorMessage);
+      }
+    }
+  };
+
+  const handleCancelEditMovimiento = () => {
+    setEditingMovimiento(null);
+    setEditMontoValue('');
+  };
+
 
   const formatDate = (dateString: string) => {
     try {
@@ -406,8 +483,9 @@ export default function ServiciosRegistro() {
                           </TableCell>
                           <TableCell className="text-right">
                             {(() => {
-                              // Usar el monto_aumentado del registro si existe, sino el calculado
-                              const montoAumentadoMostrar = registro?.monto_aumentado ?? montoAumentado;
+                              // Siempre usar el monto calculado desde los movimientos para mostrar el valor más actualizado
+                              // El registro puede tener un monto_aumentado desactualizado si se acaba de crear un movimiento
+                              const montoAumentadoMostrar = montoAumentado;
                               return montoAumentadoMostrar > 0 ? (
                                 <span className="text-green-600 font-semibold">
                                   +Bs. {montoAumentadoMostrar.toFixed(2)}
@@ -430,9 +508,8 @@ export default function ServiciosRegistro() {
                             {registro ? (
                               (() => {
                                 // Calcular Total dinámicamente: saldo_inicial + monto_aumentado - saldo_final
-                                // Usar el monto_aumentado del registro si existe, sino el calculado
-                                const montoAumentadoUsar = registro.monto_aumentado ?? montoAumentado;
-                                const totalCalculado = registro.saldo_inicial + montoAumentadoUsar - registro.saldo_final;
+                                // Siempre usar el monto calculado desde los movimientos para mostrar el valor más actualizado
+                                const totalCalculado = registro.saldo_inicial + montoAumentado - registro.saldo_final;
                                 return (
                                   <span className={totalCalculado >= 0 ? 'text-green-600' : 'text-red-600'}>
                                     {totalCalculado >= 0 ? '+' : ''}
@@ -473,18 +550,6 @@ export default function ServiciosRegistro() {
                                   <Edit className="mr-2 h-4 w-4" />
                                   {tieneRegistro ? 'Editar' : 'Registrar'}
                                 </DropdownMenuItem>
-                                {tieneRegistro && (
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setRegistroToDelete(registro.id);
-                                      setShowDeleteDialog(true);
-                                    }}
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Eliminar
-                                  </DropdownMenuItem>
-                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -583,16 +648,17 @@ export default function ServiciosRegistro() {
                 type="number"
                 step="0.01"
                 min="0"
+                readOnly
+                tabIndex={-1}
+                onFocus={(e) => e.target.blur()}
+                onClick={(e) => e.target.blur()}
                 {...registroForm.register('monto_aumentado', { valueAsNumber: true })}
+                className="bg-muted cursor-not-allowed focus:ring-0 focus:ring-offset-0 focus-visible:ring-0"
+                value={selectedServicio ? (movimientosPorServicio.get(selectedServicio.id) || 0) : 0}
               />
-              {registroForm.formState.errors.monto_aumentado && (
-                <p className="text-sm text-destructive">
-                  {registroForm.formState.errors.monto_aumentado.message}
-                </p>
-              )}
               {selectedServicio && (
                 <p className="text-xs text-muted-foreground">
-                  Calculado automáticamente: +Bs. {(movimientosPorServicio.get(selectedServicio.id) || 0).toFixed(2)}
+                  Suma de todos los aumentos del día: +Bs. {(movimientosPorServicio.get(selectedServicio.id) || 0).toFixed(2)}
                 </p>
               )}
             </div>
@@ -630,7 +696,8 @@ export default function ServiciosRegistro() {
                       {(() => {
                         const saldoInicial = registroForm.watch('saldo_inicial');
                         const saldoFinal = registroForm.watch('saldo_final');
-                        const montoAumentado = registroForm.watch('monto_aumentado') ?? (movimientosPorServicio.get(selectedServicio.id) || 0);
+                        // Siempre usar la suma de todos los aumentos del día
+                        const montoAumentado = movimientosPorServicio.get(selectedServicio.id) || 0;
                         const transaccionado = saldoInicial + montoAumentado - saldoFinal;
                         return (
                           <span className={transaccionado >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -671,44 +738,124 @@ export default function ServiciosRegistro() {
 
       {/* Dialog Aumentar Saldo */}
       <Dialog open={showAumentarDialog} onOpenChange={setShowAumentarDialog}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
             <DialogTitle>Aumentar Saldo</DialogTitle>
             <DialogDescription>
               Aumentar saldo para: <strong>{selectedServicio?.nombre}</strong>
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={aumentarSaldoForm.handleSubmit(handleAumentarSaldo)} className="space-y-4">
-            <div className="rounded-lg border p-4 bg-muted/50">
-              <p className="text-sm text-muted-foreground">Saldo Actual</p>
-              <p className="text-2xl font-bold">Bs. {selectedServicio?.saldo_actual.toFixed(2)}</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="monto">Monto a Aumentar (Bs.) *</Label>
-              <Input
-                id="monto"
-                type="number"
-                step="0.01"
-                min="0.01"
-                {...aumentarSaldoForm.register('monto', { valueAsNumber: true })}
-                placeholder="0.00"
-              />
-              {aumentarSaldoForm.formState.errors.monto && (
-                <p className="text-sm text-destructive">
-                  {aumentarSaldoForm.formState.errors.monto.message}
-                </p>
+          <form onSubmit={aumentarSaldoForm.handleSubmit(handleAumentarSaldo)} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="px-6 pb-4 space-y-4 flex-1 min-h-0 overflow-y-auto">
+              <div className="space-y-2">
+                <Label htmlFor="monto">Monto a Aumentar (Bs.) *</Label>
+                <Input
+                  id="monto"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  {...aumentarSaldoForm.register('monto', { valueAsNumber: true })}
+                  placeholder="0.00"
+                />
+                {aumentarSaldoForm.formState.errors.monto && (
+                  <p className="text-sm text-destructive">
+                    {aumentarSaldoForm.formState.errors.monto.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Historial de Aumentos del Día */}
+              {movimientosDelDia && movimientosDelDia.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Historial de Aumentos ({formatDate(fecha)})</Label>
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[80px]">Hora</TableHead>
+                            <TableHead className="text-right w-[140px]">Monto</TableHead>
+                            <TableHead className="min-w-[120px]">Observación</TableHead>
+                            <TableHead className="text-center w-[80px]">Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {movimientosDelDia.map((mov) => (
+                            <TableRow key={mov.id}>
+                              <TableCell className="text-sm py-2">{mov.hora}</TableCell>
+                              <TableCell className="text-right py-2">
+                                {editingMovimiento === mov.id ? (
+                                  <div className="flex items-center gap-1.5 justify-end">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0.01"
+                                      value={editMontoValue}
+                                      onChange={(e) => setEditMontoValue(e.target.value)}
+                                      className="w-24 h-8 text-sm"
+                                      autoFocus
+                                    />
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleSaveEditMovimiento(mov.id)}
+                                      disabled={updateMovimiento.isPending}
+                                      className="h-8 w-8 p-0 shrink-0"
+                                    >
+                                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={handleCancelEditMovimiento}
+                                      className="h-8 w-8 p-0 shrink-0"
+                                    >
+                                      <XCircle className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="font-semibold text-green-600 text-sm">
+                                    +Bs. {mov.monto.toFixed(2)}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground py-2 max-w-[200px] truncate">
+                                {mov.observacion || '-'}
+                              </TableCell>
+                              <TableCell className="text-center py-2">
+                                {editingMovimiento !== mov.id && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleEditMovimiento(mov.id, mov.monto)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
               )}
+              <div className="space-y-2">
+                <Label htmlFor="observacion-aumentar">Observación</Label>
+                <Textarea
+                  id="observacion-aumentar"
+                  {...aumentarSaldoForm.register('observacion')}
+                  placeholder="Ej: Recarga de Bs. 1000"
+                  rows={3}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="observacion-aumentar">Observación</Label>
-              <Textarea
-                id="observacion-aumentar"
-                {...aumentarSaldoForm.register('observacion')}
-                placeholder="Ej: Recarga de Bs. 1000"
-                rows={3}
-              />
-            </div>
-            <DialogFooter>
+            <DialogFooter className="px-6 pb-6 pt-4 flex-shrink-0 border-t">
               <Button
                 type="button"
                 variant="outline"
@@ -716,6 +863,8 @@ export default function ServiciosRegistro() {
                   setShowAumentarDialog(false);
                   setSelectedServicio(null);
                   aumentarSaldoForm.reset();
+                  setEditingMovimiento(null);
+                  setEditMontoValue('');
                 }}
               >
                 Cancelar
@@ -729,30 +878,6 @@ export default function ServiciosRegistro() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Eliminar */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción eliminará el registro de esta fecha. No se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setRegistroToDelete(null)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteRegistro}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteRegistro.isPending}
-            >
-              {deleteRegistro.isPending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DashboardLayout>
   );
 }

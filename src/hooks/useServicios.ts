@@ -93,13 +93,19 @@ export function useCreateMovimientoServicio() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (movimientoData: CreateMovimientoServicioData) =>
+    mutationFn: async (movimientoData: CreateMovimientoServicioData) =>
       serviciosService.createMovimiento(movimientoData),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['movimientos-servicios'] });
-      queryClient.invalidateQueries({ queryKey: ['servicios'] });
-      queryClient.invalidateQueries({ queryKey: ['servicio', variables.id_servicio] });
-      queryClient.invalidateQueries({ queryKey: ['registros-servicios'] });
+    onSuccess: async (_, variables) => {
+      // Invalidar y refetch todas las queries relacionadas
+      await queryClient.invalidateQueries({ queryKey: ['movimientos-servicios'], refetchType: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ['servicios'], refetchType: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ['servicio', variables.id_servicio], refetchType: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ['registros-servicios'], refetchType: 'active' });
+      
+      // Forzar refetch de todas las queries de movimientos y registros
+      await queryClient.refetchQueries({ queryKey: ['movimientos-servicios'] });
+      await queryClient.refetchQueries({ queryKey: ['registros-servicios'] });
+      
       toast.success('Saldo aumentado exitosamente');
     },
     onError: (error: Error) => {
@@ -108,15 +114,44 @@ export function useCreateMovimientoServicio() {
   });
 }
 
+export function useUpdateMovimientoServicio() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: { monto: number; observacion?: string } }) =>
+      serviciosService.updateMovimiento(id, updates),
+    onSuccess: async (_, variables) => {
+      // Invalidar y refetch todas las queries relacionadas
+      await queryClient.invalidateQueries({ queryKey: ['movimientos-servicios'], refetchType: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ['servicios'], refetchType: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ['registros-servicios'], refetchType: 'active' });
+      
+      // Forzar refetch de todas las queries de movimientos
+      await queryClient.refetchQueries({ queryKey: ['movimientos-servicios'] });
+      
+      toast.success('Movimiento actualizado exitosamente');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Error al actualizar el movimiento');
+    },
+  });
+}
+
 export function useDeleteMovimientoServicio() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => serviciosService.deleteMovimiento(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['movimientos-servicios'] });
-      queryClient.invalidateQueries({ queryKey: ['servicios'] });
-      queryClient.invalidateQueries({ queryKey: ['registros-servicios'] });
+    mutationFn: async (id: string) => serviciosService.deleteMovimiento(id),
+    onSuccess: async () => {
+      // Invalidar y refetch todas las queries relacionadas
+      await queryClient.invalidateQueries({ queryKey: ['movimientos-servicios'], refetchType: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ['servicios'], refetchType: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ['registros-servicios'], refetchType: 'active' });
+      
+      // Forzar refetch de todas las queries de movimientos y registros
+      await queryClient.refetchQueries({ queryKey: ['movimientos-servicios'] });
+      await queryClient.refetchQueries({ queryKey: ['registros-servicios'] });
+      
       toast.success('Movimiento eliminado exitosamente');
     },
     onError: (error: Error) => {
@@ -158,11 +193,16 @@ export function useCreateRegistroServicio() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (registroData: CreateRegistroServicioData) =>
+    mutationFn: async (registroData: CreateRegistroServicioData) =>
       serviciosService.createRegistro(registroData),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['registros-servicios'] });
-      queryClient.invalidateQueries({ queryKey: ['registro-servicio-fecha', variables.id_servicio, variables.fecha] });
+    onSuccess: async (_, variables) => {
+      // Invalidar y refetch todas las queries relacionadas
+      await queryClient.invalidateQueries({ queryKey: ['registros-servicios'], refetchType: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ['registro-servicio-fecha', variables.id_servicio, variables.fecha], refetchType: 'active' });
+      
+      // Forzar refetch de todas las queries de registros
+      await queryClient.refetchQueries({ queryKey: ['registros-servicios'] });
+      
       toast.success('Registro creado exitosamente');
     },
     onError: (error: Error) => {
@@ -175,10 +215,15 @@ export function useUpdateRegistroServicio() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Omit<any, 'id' | 'created_at' | 'updated_at'>> }) =>
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<any, 'id' | 'created_at' | 'updated_at'>> }) =>
       serviciosService.updateRegistro(id, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registros-servicios'] });
+    onSuccess: async () => {
+      // Invalidar y refetch todas las queries relacionadas
+      await queryClient.invalidateQueries({ queryKey: ['registros-servicios'], refetchType: 'active' });
+      
+      // Forzar refetch de todas las queries de registros
+      await queryClient.refetchQueries({ queryKey: ['registros-servicios'] });
+      
       toast.success('Registro actualizado exitosamente');
     },
     onError: (error: Error) => {
@@ -191,9 +236,14 @@ export function useDeleteRegistroServicio() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => serviciosService.deleteRegistro(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registros-servicios'] });
+    mutationFn: async (id: string) => serviciosService.deleteRegistro(id),
+    onSuccess: async () => {
+      // Invalidar y refetch todas las queries relacionadas
+      await queryClient.invalidateQueries({ queryKey: ['registros-servicios'], refetchType: 'active' });
+      
+      // Forzar refetch de todas las queries de registros
+      await queryClient.refetchQueries({ queryKey: ['registros-servicios'] });
+      
       toast.success('Registro eliminado exitosamente');
     },
     onError: (error: Error) => {
