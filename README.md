@@ -240,6 +240,8 @@ ventacontrol-pro/
   - ✅ Corrección del guardado del estado en editar servicio
   - ✅ Mejoras en la UI del diálogo "Aumentar Saldo"
   - ✅ Orden descendente en el historial de servicios
+  - ✅ Inclusión de servicios en el arqueo de caja
+  - ✅ Reorganización del menú: Servicios debajo de Inventario
   - ✅ Renombrado `monto_transaccionado` a `total` en registros de servicios
   - ✅ Mejoras en el guardado automático de `monto_aumentado`
   - ✅ Eliminación de la opción de eliminar servicios
