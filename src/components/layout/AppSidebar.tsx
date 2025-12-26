@@ -17,6 +17,16 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { APP_VERSION } from '@/lib/constants';
@@ -96,6 +106,7 @@ export function AppSidebar() {
   };
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(getInitialOpenSections);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   // Guardar posición de scroll cuando cambia
   useEffect(() => {
@@ -302,7 +313,7 @@ export function AppSidebar() {
         <SidebarMenu className="mt-1.5">
           <SidebarMenuItem>
             <SidebarMenuButton 
-              onClick={logout}
+              onClick={() => setShowLogoutDialog(true)}
               tooltip="Cerrar Sesión"
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
             >
@@ -319,6 +330,27 @@ export function AppSidebar() {
           </div>
         )}
       </SidebarFooter>
+
+      {/* Diálogo de confirmación para cerrar sesión */}
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cerrar sesión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas cerrar sesión? Tendrás que iniciar sesión nuevamente para acceder al sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={logout}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Cerrar Sesión
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sidebar>
   );
 }

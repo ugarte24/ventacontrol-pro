@@ -518,6 +518,9 @@ Los reportes se generan dinámicamente a partir de:
 - ✅ Preservación de estado del sidebar: La posición de scroll y el estado de secciones abiertas/cerradas se mantienen al navegar entre páginas
 - ✅ Corrección de mensajes duplicados: Eliminación de mensajes de éxito duplicados en la edición de movimientos
 
+**Cambios en v2.11.0:**
+- ✅ Diálogo de confirmación para cerrar sesión: Se agregó un AlertDialog que solicita confirmación antes de cerrar sesión, mejorando la experiencia de usuario y evitando cierres accidentales
+
 ### 🔜 v3.0 - Pendiente de Implementación 
 
 **Funcionalidades Futuras:**
@@ -592,7 +595,7 @@ Los reportes se generan dinámicamente a partir de:
 
 **Versión del PRD:** 2.10  
 **Última actualización:** Diciembre 2025  
-**Estado del Proyecto:** v2.10.0 - Sistema Completo con Mejoras en Gestión de Servicios y UX
+**Estado del Proyecto:** v2.11.0 - Sistema Completo con Mejoras en Gestión de Servicios y UX
 
 ### 📝 Notas Técnicas Importantes
 

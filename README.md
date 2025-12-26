@@ -291,6 +291,9 @@ ventacontrol-pro/
   - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
   - ✅ Corrección de mensajes duplicados en la edición de movimientos
 
+- ✅ **Mejoras en v2.11.0:**
+  - ✅ Diálogo de confirmación para cerrar sesión: Se agregó un AlertDialog que solicita confirmación antes de cerrar sesión, mejorando la experiencia de usuario y evitando cierres accidentales
+
 **UI/UX:**
 - ✅ Diseño responsive (móvil, tablet, desktop)
 - ✅ Interfaz moderna con shadcn/ui
