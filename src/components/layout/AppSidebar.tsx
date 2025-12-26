@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Home, ShoppingCart, Package, BarChart3, Users, Settings, LogOut, Receipt, FolderTree, UserCircle, Wallet, ArrowLeftRight, DollarSign, Wrench, Calendar, History, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts';
@@ -65,15 +66,70 @@ const menuSections = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { user, logout } = useAuth();
+  const location = useLocation();
   const collapsed = state === 'collapsed';
   const [searchTerm, setSearchTerm] = useState('');
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    'Principal': true,
-    'Ventas': true,
-    'Servicios': true,
-    'Inventario': true,
-    'Administración': true,
-  });
+  const sidebarContentRef = useRef<HTMLDivElement>(null);
+  
+  // Estado inicial de secciones abiertas (desde sessionStorage o valores por defecto)
+  const getInitialOpenSections = (): Record<string, boolean> => {
+    const defaultSections = {
+      'Principal': true,
+      'Ventas': true,
+      'Servicios': true,
+      'Inventario': true,
+      'Administración': true,
+    };
+    
+    try {
+      const saved = sessionStorage.getItem('sidebarOpenSections');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Combinar con valores por defecto para asegurar que todas las secciones tengan un valor
+        return { ...defaultSections, ...parsed };
+      }
+    } catch (error) {
+      console.error('Error al cargar secciones abiertas:', error);
+    }
+    
+    return defaultSections;
+  };
+
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(getInitialOpenSections);
+
+  // Guardar posición de scroll cuando cambia
+  useEffect(() => {
+    const sidebarContent = sidebarContentRef.current;
+    if (!sidebarContent) return;
+
+    const handleScroll = () => {
+      sessionStorage.setItem('sidebarScrollPosition', String(sidebarContent.scrollTop));
+    };
+
+    sidebarContent.addEventListener('scroll', handleScroll);
+    return () => {
+      sidebarContent.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  // Restaurar posición de scroll cuando cambia la ruta o se monta el componente
+  useEffect(() => {
+    // Solo restaurar si el sidebar no está colapsado
+    if (collapsed) return;
+
+    const sidebarContent = sidebarContentRef.current;
+    if (!sidebarContent) return;
+
+    const savedScrollPosition = sessionStorage.getItem('sidebarScrollPosition');
+    if (savedScrollPosition) {
+      // Usar requestAnimationFrame para asegurar que el DOM esté completamente renderizado
+      requestAnimationFrame(() => {
+        if (sidebarContentRef.current) {
+          sidebarContentRef.current.scrollTop = Number(savedScrollPosition);
+        }
+      });
+    }
+  }, [location.pathname, collapsed]);
 
   // Filtrar y preparar secciones según búsqueda y rol
   const filteredSections = useMemo(() => {
@@ -99,10 +155,19 @@ export function AppSidebar() {
   }, [user, searchTerm]);
 
   const toggleSection = (label: string) => {
-    setOpenSections(prev => ({
-      ...prev,
-      [label]: !prev[label],
-    }));
+    setOpenSections(prev => {
+      const newState = {
+        ...prev,
+        [label]: !prev[label],
+      };
+      // Guardar en sessionStorage
+      try {
+        sessionStorage.setItem('sidebarOpenSections', JSON.stringify(newState));
+      } catch (error) {
+        console.error('Error al guardar secciones abiertas:', error);
+      }
+      return newState;
+    });
   };
 
   // Si hay búsqueda, abrir todas las secciones que tengan resultados
@@ -112,7 +177,22 @@ export function AppSidebar() {
       filteredSections.forEach(section => {
         newOpenSections[section.label] = true;
       });
-      setOpenSections(prev => ({ ...prev, ...newOpenSections }));
+      setOpenSections(prev => {
+        const updated = { ...prev, ...newOpenSections };
+        // No guardar en sessionStorage cuando es por búsqueda, solo temporalmente
+        return updated;
+      });
+    } else {
+      // Si no hay búsqueda, restaurar el estado guardado
+      const saved = sessionStorage.getItem('sidebarOpenSections');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setOpenSections(prev => ({ ...prev, ...parsed }));
+        } catch (error) {
+          console.error('Error al restaurar secciones abiertas:', error);
+        }
+      }
     }
   }, [searchTerm, filteredSections]);
 
@@ -151,7 +231,7 @@ export function AppSidebar() {
         )}
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-1">
+      <SidebarContent ref={sidebarContentRef} className="px-2 py-1">
         <div className="space-y-0.5">
           {filteredSections.map((section) => {
             const isOpen = openSections[section.label] ?? true;

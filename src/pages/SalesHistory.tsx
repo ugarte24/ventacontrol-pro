@@ -70,6 +70,7 @@ import {
   Printer
 } from 'lucide-react';
 import { useSales, useSaleDetails, useCancelSale } from '@/hooks/useSales';
+import { salesService } from '@/services/sales.service';
 import { useUsers } from '@/hooks/useUsers';
 import { useProducts } from '@/hooks/useProducts';
 import { useAuth } from '@/contexts';
@@ -158,20 +159,25 @@ export default function SalesHistory() {
     if (!selectedSale) return;
 
     try {
-      // Obtener detalles de la venta
-      const details = saleDetails || [];
+      // Obtener detalles de la venta (ya incluye productos desde getDetails)
+      let details = saleDetails || [];
+      
+      // Si saleDetails no tiene productos, obtenerlos nuevamente
+      if (details.length === 0 || !(details[0] as any).productos) {
+        details = await salesService.getDetails(selectedSale.id);
+      }
       
       // Obtener información del vendedor
       const vendedorName = getVendedorName(selectedSale.id_vendedor);
 
-      // Obtener nombres de productos
-      const detailsWithProducts = details.map((detail) => {
-        const product = products?.find(p => p.id === detail.id_producto);
+      // Mapear productos correctamente (los detalles ya incluyen productos)
+      const detailsWithProducts = details.map((detail: any) => {
+        const producto = detail.productos;
         return {
           ...detail,
-          producto: product ? {
-            nombre: product.nombre,
-            codigo: product.codigo,
+          producto: producto ? {
+            nombre: producto.nombre || 'N/A',
+            codigo: producto.codigo || '',
           } : undefined,
         };
       });
@@ -182,6 +188,7 @@ export default function SalesHistory() {
         vendedor: vendedorName,
       });
     } catch (error: any) {
+      console.error('Error al imprimir ticket:', error);
       toast.error(error.message || 'Error al imprimir ticket');
     }
   };
@@ -189,20 +196,21 @@ export default function SalesHistory() {
   // Imprimir ticket directamente desde la tabla
   const handlePrintTicketFromTable = async (sale: Sale) => {
     try {
-      // Obtener detalles de la venta
+      // Obtener detalles de la venta (ya incluye productos)
       const details = await salesService.getDetails(sale.id);
       
       // Obtener información del vendedor
       const vendedorName = getVendedorName(sale.id_vendedor);
 
-      // Obtener nombres de productos
-      const detailsWithProducts = details.map((detail) => {
-        const product = products?.find(p => p.id === detail.id_producto);
+      // Los detalles ya incluyen productos desde getDetails
+      // Solo necesitamos mapear la estructura correctamente
+      const detailsWithProducts = details.map((detail: any) => {
+        const producto = detail.productos;
         return {
           ...detail,
-          producto: product ? {
-            nombre: product.nombre,
-            codigo: product.codigo,
+          producto: producto ? {
+            nombre: producto.nombre || 'N/A',
+            codigo: producto.codigo || '',
           } : undefined,
         };
       });
@@ -213,6 +221,7 @@ export default function SalesHistory() {
         vendedor: vendedorName,
       });
     } catch (error: any) {
+      console.error('Error al imprimir ticket:', error);
       toast.error(error.message || 'Error al imprimir ticket');
     }
   };

@@ -86,7 +86,8 @@ export const serviciosService = {
       .from('movimientos_servicios')
       .select('*')
       .order('fecha', { ascending: false })
-      .order('hora', { ascending: false });
+      .order('hora', { ascending: false })
+      .order('created_at', { ascending: false });
 
     if (filters?.id_servicio) {
       query = query.eq('id_servicio', filters.id_servicio);
@@ -121,27 +122,25 @@ export const serviciosService = {
   },
 
   async createMovimiento(movimientoData: CreateMovimientoServicioData): Promise<MovimientoServicio> {
-    // Obtener el último registro diario para calcular el saldo anterior
-    // Si no hay registro para esta fecha, buscar el último registro del servicio
+    // Calcular el saldo anterior correctamente
+    // Si hay movimientos del mismo día, usar el saldo_nuevo del último movimiento
+    // Si no hay movimientos del mismo día, usar 0
     let saldoAnterior = 0;
     
-    // Primero intentar obtener el registro de la fecha del movimiento
-    const registroFecha = await this.getRegistroPorFecha(movimientoData.id_servicio, movimientoData.fecha);
-    if (registroFecha) {
-      saldoAnterior = registroFecha.saldo_final;
-    } else {
-      // Si no hay registro para esta fecha, buscar el último registro del servicio
-      const { data: ultimoRegistro } = await supabase
-        .from('registros_servicios')
-        .select('saldo_final')
-        .eq('id_servicio', movimientoData.id_servicio)
-        .order('fecha', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (ultimoRegistro) {
-        saldoAnterior = ultimoRegistro.saldo_final;
-      }
+    // Verificar si hay movimientos del mismo día para este servicio
+    const { data: movimientosDelDia } = await supabase
+      .from('movimientos_servicios')
+      .select('saldo_nuevo')
+      .eq('id_servicio', movimientoData.id_servicio)
+      .eq('fecha', movimientoData.fecha)
+      .order('hora', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (movimientosDelDia && movimientosDelDia.saldo_nuevo !== null) {
+      // Si hay movimientos del mismo día, usar el saldo_nuevo del último movimiento
+      saldoAnterior = movimientosDelDia.saldo_nuevo;
     }
 
     const saldoNuevo = saldoAnterior + movimientoData.monto;
@@ -200,8 +199,6 @@ export const serviciosService = {
       throw new Error(`Movimiento no encontrado con ID: ${id}`);
     }
 
-    // Calcular la diferencia del monto
-    const diferenciaMonto = updates.monto - movimientoActual.monto;
     // El saldo nuevo del movimiento será: saldo anterior del movimiento + monto nuevo
     const nuevoSaldoMovimiento = movimientoActual.saldo_anterior + updates.monto;
 
@@ -228,16 +225,72 @@ export const serviciosService = {
       throw new Error(handleSupabaseError(updateError));
     }
 
-    // No es necesario actualizar saldo_actual ya que no existe en la tabla servicios
-
-    // Obtener el movimiento actualizado después de todas las actualizaciones
+    // Obtener el movimiento actualizado
     const movimientoActualizado = await this.getMovimientoById(id);
     if (!movimientoActualizado) {
       throw new Error('Error al obtener el movimiento actualizado');
     }
 
+    // Obtener todos los movimientos del mismo día ordenados por hora y created_at (ascendente)
+    // para recalcular los saldos de los movimientos posteriores
+    const { data: todosMovimientosDelDia, error: errorMovimientos } = await supabase
+      .from('movimientos_servicios')
+      .select('*')
+      .eq('id_servicio', movimientoActual.id_servicio)
+      .eq('fecha', movimientoActual.fecha)
+      .order('hora', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (errorMovimientos) {
+      throw new Error(handleSupabaseError(errorMovimientos));
+    }
+
+    // Recalcular saldos de todos los movimientos posteriores al editado
+    if (todosMovimientosDelDia && todosMovimientosDelDia.length > 0) {
+      // Encontrar el índice del movimiento editado
+      const indiceEditado = todosMovimientosDelDia.findIndex(mov => mov.id === id);
+      
+      if (indiceEditado !== -1) {
+        // Recalcular desde el movimiento editado en adelante
+        for (let i = indiceEditado; i < todosMovimientosDelDia.length; i++) {
+          const mov = todosMovimientosDelDia[i];
+          
+          // Determinar el saldo anterior
+          let saldoAnteriorMov = 0;
+          if (i === 0) {
+            // Si es el primer movimiento del día, saldo anterior es 0
+            saldoAnteriorMov = 0;
+          } else {
+            // Si no es el primero, usar el saldo_nuevo del movimiento anterior
+            saldoAnteriorMov = todosMovimientosDelDia[i - 1].saldo_nuevo;
+          }
+
+          // Calcular el nuevo saldo
+          const nuevoSaldo = saldoAnteriorMov + mov.monto;
+
+          // Actualizar solo si el saldo cambió o si es el movimiento editado
+          if (mov.saldo_anterior !== saldoAnteriorMov || mov.saldo_nuevo !== nuevoSaldo || mov.id === id) {
+            const { error: updateMovError } = await supabase
+              .from('movimientos_servicios')
+              .update({
+                saldo_anterior: saldoAnteriorMov,
+                saldo_nuevo: nuevoSaldo,
+              })
+              .eq('id', mov.id);
+
+            if (updateMovError) {
+              console.error(`Error al actualizar movimiento ${mov.id}:`, updateMovError);
+            } else {
+              // Actualizar el objeto en memoria para que el siguiente cálculo use el valor correcto
+              mov.saldo_anterior = saldoAnteriorMov;
+              mov.saldo_nuevo = nuevoSaldo;
+            }
+          }
+        }
+      }
+    }
+
     // Si existe un registro para esta fecha, actualizarlo para que el trigger recalcule total
-    // Usar try-catch para evitar errores si no existe el registro
     try {
       const registroExistente = await this.getRegistroPorFecha(movimientoActual.id_servicio, movimientoActual.fecha);
       if (registroExistente) {
@@ -255,17 +308,21 @@ export const serviciosService = {
         await this.updateRegistro(registroExistente.id, {
           saldo_inicial: registroExistente.saldo_inicial,
           saldo_final: registroExistente.saldo_final,
-          monto_aumentado: sumaAumentos, // Pasar explícitamente la suma de aumentos
+          monto_aumentado: sumaAumentos,
           observacion: registroExistente.observacion || undefined,
         });
       }
     } catch (error) {
-      // Si hay un error al obtener o actualizar el registro, continuar sin actualizarlo
-      // El trigger de la base de datos se encargará de recalcular cuando sea necesario
       console.warn('No se pudo actualizar el registro diario:', error);
     }
 
-    return movimientoActualizado;
+    // Obtener el movimiento actualizado final
+    const movimientoFinal = await this.getMovimientoById(id);
+    if (!movimientoFinal) {
+      throw new Error('Error al obtener el movimiento actualizado');
+    }
+
+    return movimientoFinal;
   },
 
   async deleteMovimiento(id: string): Promise<void> {

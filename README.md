@@ -252,12 +252,12 @@ ventacontrol-pro/
   - ✅ Orden descendente en el historial de servicios
   - ✅ Inclusión de servicios en el arqueo de caja
   - ✅ Reorganización del menú: Servicios debajo de Inventario
-  - ✅ Renombrado `monto_transaccionado` a `total` en registros de servicios
-  - ✅ Mejoras en el guardado automático de `monto_aumentado`
-  - ✅ Eliminación de la opción de eliminar servicios
-  - ✅ Corrección del guardado del estado en editar servicio
-  - ✅ Mejoras en la UI del diálogo "Aumentar Saldo"
-  - ✅ Orden descendente en el historial de servicios
+  - ✅ Corrección del cálculo de saldo anterior en movimientos (encadenamiento correcto)
+  - ✅ Orden descendente en movimientos de saldo (más recientes primero)
+  - ✅ Actualización automática de saldos posteriores al editar un movimiento
+  - ✅ Cierre automático del diálogo "Aumentar Saldo" al editar un movimiento
+  - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
+  - ✅ Corrección de mensajes duplicados en la edición de movimientos
 - ✅ **Paginación en listados grandes:**
   - ✅ Paginación implementada en todas las tablas del sistema (20 elementos por página)
   - ✅ Controles de navegación con números de página y elipsis
@@ -283,6 +283,13 @@ ventacontrol-pro/
   - ✅ Top 5 clientes con más créditos
   - ✅ Exportación a PDF/Excel con información detallada de cada crédito (cliente, productos, intereses, pagos, saldo pendiente)
   - ✅ Diseño optimizado de columnas para que todas quepan en el ancho de página
+- ✅ **Mejoras en v2.10.0:**
+  - ✅ Corrección del cálculo de saldo anterior en movimientos de servicios (encadenamiento correcto)
+  - ✅ Orden descendente en movimientos de saldo (más recientes primero)
+  - ✅ Actualización automática de saldos posteriores al editar un movimiento
+  - ✅ Cierre automático del diálogo "Aumentar Saldo" al editar un movimiento
+  - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
+  - ✅ Corrección de mensajes duplicados en la edición de movimientos
 
 **UI/UX:**
 - ✅ Diseño responsive (móvil, tablet, desktop)
@@ -291,6 +298,8 @@ ventacontrol-pro/
 - ✅ Manejo de errores robusto
 - ✅ Feedback visual inmediato
 - ✅ Animaciones sutiles
+- ✅ Preservación de estado del sidebar (scroll y secciones abiertas/cerradas)
+- ✅ Mejoras en la experiencia de edición de movimientos de servicios
 
 ### 🔜 Pendiente (v3.0)
 - 🔜 Testing (unitario, integración, E2E)
@@ -370,6 +379,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.9.0  
+**Versión**: 2.10.0  
 **Última actualización**: Diciembre 2025  
-**Estado**: Sistema completo con Gestión de Emails de Usuarios - En producción
+**Estado**: Sistema completo con Mejoras en Gestión de Servicios y UX - En producción

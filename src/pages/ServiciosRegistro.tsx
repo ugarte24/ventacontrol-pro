@@ -377,10 +377,16 @@ export default function ServiciosRegistro() {
         id: movimientoId,
         updates: { monto: nuevoMonto },
       });
+      // El mensaje de éxito se muestra en el hook useUpdateMovimientoServicio
+      // Cerrar el modo de edición inmediatamente después de guardar
       setEditingMovimiento(null);
       setEditMontoValue('');
       // Forzar refetch de movimientos para actualizar la tabla
       await refetchMovimientos();
+      // Cerrar el diálogo de Aumentar Saldo
+      setShowAumentarDialog(false);
+      setSelectedServicio(null);
+      aumentarSaldoForm.reset();
     } catch (error: any) {
       // Mostrar error más específico
       const errorMessage = error?.message || 'Error al actualizar el movimiento';

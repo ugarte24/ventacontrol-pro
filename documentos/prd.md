@@ -510,6 +510,14 @@ Los reportes se generan dinámicamente a partir de:
 - ✅ Scripts de despliegue automatizados para Edge Functions
 - ✅ Documentación completa de Edge Functions y despliegue
 
+**Cambios en v2.10.0:**
+- ✅ Corrección del cálculo de saldo anterior en movimientos de servicios: Los movimientos del mismo día ahora se encadenan correctamente usando el saldo_nuevo del movimiento anterior
+- ✅ Orden descendente en movimientos de saldo: Los movimientos se muestran con los más recientes primero
+- ✅ Actualización automática de saldos posteriores: Al editar un movimiento, todos los movimientos posteriores del mismo día se recalculan automáticamente
+- ✅ Cierre automático del diálogo al editar: El diálogo "Aumentar Saldo" se cierra automáticamente después de guardar un movimiento editado
+- ✅ Preservación de estado del sidebar: La posición de scroll y el estado de secciones abiertas/cerradas se mantienen al navegar entre páginas
+- ✅ Corrección de mensajes duplicados: Eliminación de mensajes de éxito duplicados en la edición de movimientos
+
 ### 🔜 v3.0 - Pendiente de Implementación 
 
 **Funcionalidades Futuras:**
@@ -582,9 +590,9 @@ Los reportes se generan dinámicamente a partir de:
 
 ---
 
-**Versión del PRD:** 2.9  
+**Versión del PRD:** 2.10  
 **Última actualización:** Diciembre 2025  
-**Estado del Proyecto:** v2.9.0 - Sistema Completo con Gestión de Emails de Usuarios
+**Estado del Proyecto:** v2.10.0 - Sistema Completo con Mejoras en Gestión de Servicios y UX
 
 ### 📝 Notas Técnicas Importantes
 
