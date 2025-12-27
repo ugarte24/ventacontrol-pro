@@ -81,6 +81,24 @@ npm run lint
 
 ## 🔧 Configuración
 
+### Base de Datos
+
+Para configurar la base de datos en un nuevo proyecto de Supabase:
+
+1. **Ejecutar el Script SQL Maestro:**
+   - Ve al SQL Editor de Supabase
+   - Ejecuta el archivo `migrations/00_MASTER_SCHEMA.sql`
+   - Este script crea todas las tablas, funciones, triggers y políticas RLS
+   - Ver instrucciones detalladas en `migrations/README_MASTER_SCHEMA.md`
+
+2. **Crear Usuario Administrador:**
+   - Crea un usuario en Supabase Auth
+   - Insértalo en la tabla `usuarios` con rol `'admin'`
+
+3. **Configurar Storage:**
+   - Crea un bucket llamado `productos` en Supabase Storage
+   - Configura las políticas de acceso necesarias
+
 ### Variables de Entorno
 
 Crea un archivo `.env.local` en la raíz del proyecto con las siguientes variables:
@@ -290,6 +308,11 @@ ventacontrol-pro/
   - ✅ Cierre automático del diálogo "Aumentar Saldo" al editar un movimiento
   - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
   - ✅ Corrección de mensajes duplicados en la edición de movimientos
+
+- ✅ **Mejoras en v2.12.0:**
+  - Carrito móvil mejorado: El carrito ahora usa Sheet (modal deslizable desde abajo) en tablet además de móvil
+  - Ajuste de z-index: El Sheet del carrito ahora aparece correctamente por encima del header
+  - Optimización de notificaciones: Los mensajes toast ahora aparecen en la parte inferior izquierda con tamaño reducido para no tapar el botón flotante del carrito
 
 - ✅ **Mejoras en v2.11.0:**
   - ✅ Diálogo de confirmación para cerrar sesión: Se agregó un AlertDialog que solicita confirmación antes de cerrar sesión, mejorando la experiencia de usuario y evitando cierres accidentales

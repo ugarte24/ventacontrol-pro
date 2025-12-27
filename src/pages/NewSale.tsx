@@ -47,6 +47,8 @@ import {
 } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsDesktopLarge } from '@/hooks/use-desktop-large';
 import {
   Dialog,
   DialogContent,
@@ -55,6 +57,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Pagination,
@@ -67,9 +76,12 @@ import {
 } from '@/components/ui/pagination';
 
 export default function NewSale() {
+  const isMobile = useIsMobile();
+  const isDesktopLarge = useIsDesktopLarge();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('efectivo');
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showCartSheet, setShowCartSheet] = useState(false);
   const [saleTotal, setSaleTotal] = useState(0);
   const [saleItems, setSaleItems] = useState<typeof items>([]);
   const [saleItemCount, setSaleItemCount] = useState(0);
@@ -304,11 +316,30 @@ export default function NewSale() {
     }
   }, [selectedPayment]);
 
+  // Mostrar Sheet cuando NO estamos en desktop grande (tablet o móvil)
+  const shouldShowSheet = !isDesktopLarge;
+
   return (
     <DashboardLayout title="Nueva Venta">
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+      {/* Botón flotante del carrito - Tablet y móvil (cuando NO es desktop grande) */}
+      {shouldShowSheet && (
+        <Button
+          onClick={() => setShowCartSheet(true)}
+          className="fixed bottom-6 right-6 z-[100] h-14 w-14 rounded-full shadow-lg"
+          size="icon"
+        >
+          <ShoppingCart className="h-6 w-6" />
+          {itemCount > 0 && (
+            <Badge className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 rounded-full">
+              {itemCount}
+            </Badge>
+          )}
+        </Button>
+      )}
+
+      <div className={cn("grid gap-4 sm:gap-6", isDesktopLarge && "lg:grid-cols-3")}>
         {/* Products Section */}
-        <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+        <div className={cn("space-y-3 sm:space-y-4", isDesktopLarge && "lg:col-span-2")}>
           {/* Search */}
           <div className="relative animate-fade-in">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -504,7 +535,7 @@ export default function NewSale() {
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
-            </div>
+        </div>
           )}
 
           {/* Información de paginación */}
@@ -515,8 +546,9 @@ export default function NewSale() {
           )}
         </div>
 
-        {/* Cart Section */}
-        <div className="space-y-4 animate-slide-up lg:sticky lg:top-6">
+        {/* Cart Section - Solo visible en desktop grande (≥1024px) */}
+        {isDesktopLarge && (
+        <div className={cn("space-y-4 animate-slide-up lg:sticky lg:top-6")}>
           <Card>
             <CardHeader className="border-b">
               <CardTitle className="flex items-center gap-2 font-display">
@@ -559,51 +591,51 @@ export default function NewSale() {
                               </div>
                             )}
                             
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-foreground truncate">{item.nombre}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-foreground truncate">{item.nombre}</p>
                               <p className="text-sm text-muted-foreground truncate">
-                                Bs. {item.precio_venta.toFixed(2)} c/u
-                              </p>
-                            </div>
+                              Bs. {item.precio_venta.toFixed(2)} c/u
+                            </p>
+                          </div>
                             
                             {/* Controles de cantidad - siempre en la misma fila */}
                             <div className="flex items-center gap-2 shrink-0">
-                              <Button
-                                variant="outline"
-                                size="icon"
+                            <Button
+                              variant="outline"
+                              size="icon"
                                 className="h-8 w-8"
-                                onClick={() => updateQuantity(item.id, item.cantidad - 1)}
-                              >
+                              onClick={() => updateQuantity(item.id, item.cantidad - 1)}
+                            >
                                 <Minus className="h-4 w-4" />
-                              </Button>
-                              <span className="w-8 text-center font-medium">{item.cantidad}</span>
-                              <Button
-                                variant="outline"
-                                size="icon"
+                            </Button>
+                            <span className="w-8 text-center font-medium">{item.cantidad}</span>
+                            <Button
+                              variant="outline"
+                              size="icon"
                                 className="h-8 w-8"
-                                onClick={() => {
-                                  try {
-                                    updateQuantity(item.id, item.cantidad + 1);
-                                  } catch (error: any) {
-                                    toast.error(error.message || 'Error al actualizar cantidad');
-                                  }
-                                }}
-                                disabled={item.cantidad >= item.stock_actual}
-                              >
+                              onClick={() => {
+                                try {
+                                  updateQuantity(item.id, item.cantidad + 1);
+                                } catch (error: any) {
+                                  toast.error(error.message || 'Error al actualizar cantidad');
+                                }
+                              }}
+                              disabled={item.cantidad >= item.stock_actual}
+                            >
                                 <Plus className="h-4 w-4" />
-                              </Button>
-                              <Button
+                            </Button>
+                            <Button
                                 variant="outline"
-                                size="icon"
+                              size="icon"
                                 className="h-8 w-8 text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground"
                                 onClick={() => {
                                   removeItem(item.id);
                                   toast.success(`${item.nombre} eliminado del carrito`);
                                 }}
                                 title="Eliminar del carrito"
-                              >
+                            >
                                 <Trash2 className="h-4 w-4" />
-                              </Button>
+                            </Button>
                             </div>
                           </div>
                         </div>
@@ -900,24 +932,410 @@ export default function NewSale() {
             </CardContent>
           </Card>
         </div>
+        )}
       </div>
+
+      {/* Sheet del Carrito - Tablet y móvil (cuando NO es desktop grande) */}
+      {shouldShowSheet && (
+        <Sheet open={showCartSheet} onOpenChange={setShowCartSheet}>
+          <SheetContent side="bottom" className="h-[90vh] flex flex-col p-0">
+            <SheetHeader className="px-4 pt-4 pb-2 border-b pr-12">
+              <SheetTitle className="flex items-center gap-2 font-display">
+                <ShoppingCart className="h-5 w-5" />
+                <span>Carrito</span>
+                {itemCount > 0 && (
+                  <Badge className="ml-auto">{itemCount}</Badge>
+                )}
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Gestiona los productos en tu carrito de venta
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto">
+              {items.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                  <ShoppingCart className="h-12 w-12 text-muted-foreground/50" />
+                  <p className="mt-4 text-muted-foreground">El carrito está vacío</p>
+                  <p className="text-sm text-muted-foreground">Haz clic en un producto para agregarlo</p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-y-auto overscroll-contain">
+                    <div className="divide-y">
+                      {items.map((item) => (
+                        <div key={item.id} className="p-4">
+                          <div className="flex items-center gap-3 flex-nowrap">
+                            {/* Imagen del producto en el carrito */}
+                            {item.imagen_url ? (
+                              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted flex items-center justify-center">
+                                <img 
+                                  src={item.imagen_url} 
+                                  alt={item.nombre}
+                                  className="h-full w-full object-contain"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="h-12 w-12 shrink-0 rounded-lg bg-muted flex items-center justify-center">
+                                <Package className="h-6 w-6 text-muted-foreground/50" />
+                              </div>
+                            )}
+                            
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-foreground truncate">{item.nombre}</p>
+                              <p className="text-sm text-muted-foreground truncate">
+                                Bs. {item.precio_venta.toFixed(2)} c/u
+                              </p>
+                            </div>
+                            
+                            {/* Controles de cantidad */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => updateQuantity(item.id, item.cantidad - 1)}
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span className="w-8 text-center font-medium">{item.cantidad}</span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  try {
+                                    updateQuantity(item.id, item.cantidad + 1);
+                                  } catch (error: any) {
+                                    toast.error(error.message || 'Error al actualizar cantidad');
+                                  }
+                                }}
+                                disabled={item.cantidad >= item.stock_actual}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground"
+                                onClick={() => {
+                                  removeItem(item.id);
+                                  toast.success(`${item.nombre} eliminado del carrito`);
+                                }}
+                                title="Eliminar del carrito"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Payment Method */}
+                  <div className="border-t p-4">
+                    <p className="mb-3 text-sm font-medium text-muted-foreground">Método de Pago</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {paymentMethods.map((method) => (
+                        <button
+                          key={method.id}
+                          onClick={() => setSelectedPayment(method.id)}
+                          className={cn(
+                            "flex flex-col items-center gap-1 rounded-lg border p-3 transition-all min-h-[60px]",
+                            selectedPayment === method.id
+                              ? "border-primary bg-primary/5 text-primary"
+                              : "border-border hover:border-primary/50"
+                          )}
+                        >
+                          <method.icon className="h-5 w-5" />
+                          <span className="text-xs font-medium">{method.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Campos adicionales para crédito */}
+                  {selectedPayment === 'credito' && (
+                    <div className="border-t p-4 space-y-3">
+                      {/* Selector de Cliente */}
+                      <div className="space-y-2">
+                        <Label className="text-sm">Cliente *</Label>
+                        <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between h-9"
+                            >
+                              {selectedClient ? (
+                                <span className="truncate">{selectedClient.nombre}</span>
+                              ) : (
+                                <span className="text-muted-foreground">Seleccionar cliente...</span>
+                              )}
+                              <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command shouldFilter={false}>
+                              <CommandInput 
+                                placeholder="Buscar cliente..." 
+                                value={clientSearchTerm}
+                                onValueChange={setClientSearchTerm}
+                              />
+                              <CommandList>
+                                {filteredClients.length === 0 ? (
+                                  <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                                ) : (
+                                  <CommandGroup>
+                                    {filteredClients.map((client) => (
+                                      <CommandItem
+                                        key={client.id}
+                                        value={`${client.nombre} ${client.ci_nit || ''}`}
+                                        onSelect={() => {
+                                          setSelectedClient(client);
+                                          setClientSearchOpen(false);
+                                          setClientSearchTerm('');
+                                        }}
+                                        className="group"
+                                      >
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{client.nombre}</span>
+                                          {client.ci_nit && (
+                                            <span className="text-xs text-muted-foreground group-hover:text-white transition-colors">
+                                              CI/NIT: {client.ci_nit}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                )}
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      {/* Cantidad de Cuotas */}
+                      <div className="space-y-2">
+                        <Label className="text-sm">Cantidad de Cuotas *</Label>
+                        <Input
+                          type="number"
+                          step="1"
+                          min="1"
+                          max="120"
+                          value={mesesCreditoInput}
+                          onChange={(e) => {
+                            const inputValue = e.target.value;
+                            setMesesCreditoInput(inputValue);
+                            if (inputValue === '' || inputValue === '.') {
+                              setMesesCredito(1);
+                              return;
+                            }
+                            const numValue = parseInt(inputValue, 10);
+                            if (!isNaN(numValue) && numValue >= 1 && numValue <= 120) {
+                              setMesesCredito(numValue);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const numValue = parseInt(e.target.value, 10);
+                            if (isNaN(numValue) || numValue < 1) {
+                              setMesesCredito(1);
+                              setMesesCreditoInput('1');
+                            } else if (numValue > 120) {
+                              setMesesCredito(120);
+                              setMesesCreditoInput('120');
+                            } else {
+                              setMesesCreditoInput(e.target.value);
+                            }
+                          }}
+                          placeholder="Ej: 3"
+                          className="h-9"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Número de cuotas para el pago del crédito
+                        </p>
+                      </div>
+
+                      {/* Tasa de Interés Mensual */}
+                      <div className="space-y-2">
+                        <Label className="text-sm">Tasa de Interés Mensual (%)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="100"
+                          value={tasaInteresInput !== '' ? tasaInteresInput : (tasaInteres > 0 ? tasaInteres.toString() : '')}
+                          onChange={(e) => {
+                            const inputValue = e.target.value;
+                            setTasaInteresInput(inputValue);
+                            if (inputValue === '' || inputValue === '.') {
+                              setTasaInteres(0);
+                              return;
+                            }
+                            const numValue = parseFloat(inputValue);
+                            if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                              setTasaInteres(numValue);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const numValue = parseFloat(e.target.value);
+                            if (isNaN(numValue) || numValue < 0) {
+                              setTasaInteres(0);
+                              setTasaInteresInput('');
+                            } else if (numValue > 100) {
+                              setTasaInteres(100);
+                              setTasaInteresInput('100');
+                            } else {
+                              setTasaInteresInput(e.target.value);
+                            }
+                          }}
+                          placeholder="0.0"
+                          className="h-9"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Se aplicará mensualmente sobre el total original desde la fecha de la venta
+                        </p>
+                      </div>
+
+                      {/* Cuota Inicial */}
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="cuota-inicial-mobile"
+                            checked={cuotaInicialHabilitada}
+                            onCheckedChange={(checked) => {
+                              setCuotaInicialHabilitada(checked === true);
+                              if (!checked) {
+                                setCuotaInicial(0);
+                                setCuotaInicialInput('');
+                              }
+                            }}
+                          />
+                          <Label
+                            htmlFor="cuota-inicial-mobile"
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            Cuota Inicial
+                          </Label>
+                        </div>
+                        {cuotaInicialHabilitada && (
+                          <div className="space-y-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max={total}
+                              value={cuotaInicialInput !== '' ? cuotaInicialInput : (cuotaInicial > 0 ? cuotaInicial.toFixed(2) : '')}
+                              onChange={(e) => {
+                                const inputValue = e.target.value;
+                                setCuotaInicialInput(inputValue);
+                                if (inputValue === '' || inputValue === '.') {
+                                  setCuotaInicial(0);
+                                  return;
+                                }
+                                const numValue = parseFloat(inputValue);
+                                if (!isNaN(numValue) && numValue >= 0 && numValue <= total) {
+                                  setCuotaInicial(numValue);
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const numValue = parseFloat(e.target.value);
+                                if (isNaN(numValue) || numValue < 0) {
+                                  setCuotaInicial(0);
+                                  setCuotaInicialInput('');
+                                } else if (numValue > total) {
+                                  setCuotaInicial(total);
+                                  setCuotaInicialInput(total.toFixed(2));
+                                } else {
+                                  setCuotaInicialInput(e.target.value);
+                                }
+                              }}
+                              placeholder="0.00"
+                              className="h-9"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              El interés y las cuotas se calcularán sobre: Bs. {(total - cuotaInicial).toFixed(2)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Total */}
+                  <div className="border-t bg-muted/30 p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Subtotal</span>
+                      <span className="text-base font-medium">Bs. {total.toFixed(2)}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="font-display text-lg font-bold">Total</span>
+                      <span className="font-display text-2xl font-bold text-primary">
+                        Bs. {total.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="p-4 space-y-2 border-t">
+                    <Button 
+                      className="w-full h-12 gap-2 text-base" 
+                      onClick={() => {
+                        handleCompleteSale();
+                        setShowCartSheet(false);
+                      }}
+                      disabled={itemCount === 0 || createSaleMutation.isPending}
+                    >
+                      {createSaleMutation.isPending ? (
+                        <>
+                          <Loader className="h-5 w-5 animate-spin" />
+                          Procesando...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-5 w-5" />
+                          Completar Venta
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => {
+                        clearCart();
+                        setShowCartSheet(false);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-      <DialogHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
-          <CheckCircle className="h-8 w-8 text-success" />
-        </div>
+          <DialogHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
+              <CheckCircle className="h-8 w-8 text-success" />
+            </div>
         <DialogTitle className="font-display text-2xl">
           {selectedPayment === 'credito' ? 'Venta a Crédito Registrada' : '¡Venta Completada!'}
         </DialogTitle>
-        <DialogDescription>
+            <DialogDescription>
           {selectedPayment === 'credito'
             ? 'Venta a crédito creada. Registra pagos desde el módulo de Créditos.'
             : 'La venta se ha registrado exitosamente en el sistema'}
-        </DialogDescription>
-      </DialogHeader>
+            </DialogDescription>
+          </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="rounded-lg bg-muted p-4 text-center space-y-2">
               <p className="text-sm text-muted-foreground">

@@ -518,6 +518,11 @@ Los reportes se generan dinámicamente a partir de:
 - ✅ Preservación de estado del sidebar: La posición de scroll y el estado de secciones abiertas/cerradas se mantienen al navegar entre páginas
 - ✅ Corrección de mensajes duplicados: Eliminación de mensajes de éxito duplicados en la edición de movimientos
 
+**Cambios en v2.12.0:**
+- Carrito móvil mejorado: El carrito ahora usa Sheet (modal deslizable desde abajo) en tablet además de móvil, mejorando la experiencia en dispositivos medianos
+- Ajuste de z-index: El Sheet del carrito ahora aparece correctamente por encima del header en todas las resoluciones
+- Optimización de notificaciones: Los mensajes toast (notificaciones) ahora aparecen en la parte inferior izquierda con tamaño reducido para no tapar el botón flotante del carrito
+
 **Cambios en v2.11.0:**
 - ✅ Diálogo de confirmación para cerrar sesión: Se agregó un AlertDialog que solicita confirmación antes de cerrar sesión, mejorando la experiencia de usuario y evitando cierres accidentales
 

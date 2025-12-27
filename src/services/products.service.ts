@@ -8,7 +8,7 @@ export const productsService = {
     let query = supabase
       .from('productos')
       .select('*')
-      .order('nombre');
+      .order('created_at', { ascending: false });
 
     if (!includeInactive) {
       query = query.eq('estado', 'activo');
@@ -55,7 +55,7 @@ export const productsService = {
       .select('*')
       .eq('estado', 'activo')
       .or(`nombre.ilike.%${query}%,codigo.ilike.%${query}%`)
-      .order('nombre');
+      .order('created_at', { ascending: false });
 
     if (error) throw new Error(handleSupabaseError(error));
     return data as Product[];
