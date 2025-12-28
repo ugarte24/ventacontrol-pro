@@ -49,9 +49,13 @@ La integración de Supabase con VentaPlus ha sido completada en su mayoría. Aqu
 2. **Variables de Entorno**
    - Crea un archivo `.env.local` en la raíz del proyecto con:
      ```
-     VITE_SUPABASE_URL=https://nhuxiowjdpybhnjohlph.supabase.co
-     VITE_SUPABASE_ANON_KEY=sb_publishable_nTvIpOp6MVRurw3Oyv9M0g_i4PYxwuL
+     VITE_SUPABASE_URL=tu_url_de_supabase
+     VITE_SUPABASE_ANON_KEY=tu_anon_key_de_supabase
      ```
+   - **Importante**: Obtén estas credenciales desde tu proyecto de Supabase:
+     - Ve a Settings → API en el dashboard de Supabase
+     - Copia la "Project URL" para `VITE_SUPABASE_URL`
+     - Copia la "anon public" key para `VITE_SUPABASE_ANON_KEY`
 
 3. **Migración de Datos Mock**
    - Los productos mock aún están en `src/types/index.ts`

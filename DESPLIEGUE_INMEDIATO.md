@@ -17,7 +17,7 @@ Esto abrirá tu navegador para autenticarte. Acepta los permisos y vuelve a la t
 ### 2. Enlazar tu Proyecto (Solo una vez)
 
 ```powershell
-npx supabase@latest link --project-ref nhuxiowjdpybhnjohlph
+npx supabase@latest link --project-ref tu-project-ref
 ```
 
 **Nota:** Si tu Project Ref es diferente, reemplázalo. Lo encuentras en:

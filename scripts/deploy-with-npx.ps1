@@ -23,8 +23,8 @@ if (-not (Test-Path ".supabase\config.toml")) {
     Write-Host "[AVISO] El proyecto no esta enlazado." -ForegroundColor Yellow
     Write-Host "Necesitas el Project Ref de tu proyecto Supabase." -ForegroundColor White
     Write-Host "Encuentralo en la URL: https://[project-ref].supabase.co" -ForegroundColor Gray
-    Write-Host "Ejemplo: Si tu URL es https://nhuxiowjdpybhnjohlph.supabase.co" -ForegroundColor Gray
-    Write-Host "         entonces tu Project Ref es: nhuxiowjdpybhnjohlph" -ForegroundColor Gray
+    Write-Host "Ejemplo: Si tu URL es https://tu-project-ref.supabase.co" -ForegroundColor Gray
+    Write-Host "         entonces tu Project Ref es: tu-project-ref" -ForegroundColor Gray
     Write-Host ""
     $projectRef = Read-Host "Ingresa tu Project Ref"
     

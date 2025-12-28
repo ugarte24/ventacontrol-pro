@@ -11,8 +11,8 @@ Ejecuta estos comandos desde la raíz del proyecto:
 npx supabase@latest login
 
 # 2. Enlazar proyecto (solo la primera vez)
-# Reemplaza 'nhuxiowjdpybhnjohlph' con tu Project Ref
-npx supabase@latest link --project-ref nhuxiowjdpybhnjohlph
+# Reemplaza 'tu-project-ref' con tu Project Ref
+npx supabase@latest link --project-ref tu-project-ref
 
 # 3. Desplegar funciones
 npx supabase@latest functions deploy get-user-email
@@ -82,8 +82,8 @@ Si prefieres hacerlo manualmente desde la interfaz web:
 ## Encontrar tu Project Ref
 
 Tu Project Ref es la parte única de tu URL de Supabase:
-- Si tu URL es: `https://nhuxiowjdpybhnjohlph.supabase.co`
-- Tu Project Ref es: `nhuxiowjdpybhnjohlph`
+- Si tu URL es: `https://[tu-project-ref].supabase.co`
+- Tu Project Ref es: `[tu-project-ref]`
 
 También puedes encontrarlo en:
 - Dashboard → Settings → API → Reference ID
