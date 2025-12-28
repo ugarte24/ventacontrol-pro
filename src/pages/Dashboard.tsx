@@ -236,7 +236,12 @@ export default function Dashboard() {
                               </p>
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Clock className="h-3 w-3" />
-                                {sale.fecha} {sale.hora} • {primerDetalle?.cantidad || 0} x Bs. {primerDetalle?.precio_unitario?.toFixed(2) || '0.00'}
+                                {sale.fecha} {sale.hora}
+                                {detalles.length > 1 && (
+                                  <span className="ml-1">
+                                    (+{detalles.length - 1} más)
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -273,7 +278,12 @@ export default function Dashboard() {
                             </p>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Clock className="h-3 w-3" />
-                              {sale.fecha} {sale.hora} • {primerDetalle?.cantidad || 0} x Bs. {primerDetalle?.precio_unitario?.toFixed(2) || '0.00'}
+                              {sale.fecha} {sale.hora}
+                              {detalles.length > 1 && (
+                                <span className="ml-1">
+                                  (+{detalles.length - 1} más)
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

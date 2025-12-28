@@ -518,6 +518,9 @@ Los reportes se generan dinámicamente a partir de:
 - ✅ Preservación de estado del sidebar: La posición de scroll y el estado de secciones abiertas/cerradas se mantienen al navegar entre páginas
 - ✅ Corrección de mensajes duplicados: Eliminación de mensajes de éxito duplicados en la edición de movimientos
 
+**Cambios en v2.13.0:**
+- Mejora en Dashboard - Últimas Ventas: Se simplificó la visualización de las últimas ventas para mostrar solo el nombre del producto, fecha y hora, con indicador "+X más" cuando hay múltiples productos, eliminando la cantidad total de productos para una vista más limpia y consistente con el historial de ventas
+
 **Cambios en v2.12.0:**
 - Carrito móvil mejorado: El carrito ahora usa Sheet (modal deslizable desde abajo) en tablet además de móvil, mejorando la experiencia en dispositivos medianos
 - Ajuste de z-index: El Sheet del carrito ahora aparece correctamente por encima del header en todas las resoluciones
@@ -598,9 +601,9 @@ Los reportes se generan dinámicamente a partir de:
 
 ---
 
-**Versión del PRD:** 2.12  
+**Versión del PRD:** 2.13  
 **Última actualización:** Diciembre 2025  
-**Estado del Proyecto:** v2.12.0 - Sistema Completo con Mejoras en Carrito Móvil y UX
+**Estado del Proyecto:** v2.13.0 - Sistema Completo con Mejoras en Dashboard
 
 ### 📝 Notas Técnicas Importantes
 

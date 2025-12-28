@@ -309,6 +309,9 @@ ventacontrol-pro/
   - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
   - ✅ Corrección de mensajes duplicados en la edición de movimientos
 
+- ✅ **Mejoras en v2.13.0:**
+  - Mejora en Dashboard - Últimas Ventas: Se simplificó la visualización de las últimas ventas para mostrar solo el nombre del producto, fecha y hora, con indicador "+X más" cuando hay múltiples productos, eliminando la cantidad total de productos para una vista más limpia y consistente con el historial de ventas
+
 - ✅ **Mejoras en v2.12.0:**
   - Carrito móvil mejorado: El carrito ahora usa Sheet (modal deslizable desde abajo) en tablet además de móvil
   - Ajuste de z-index: El Sheet del carrito ahora aparece correctamente por encima del header
