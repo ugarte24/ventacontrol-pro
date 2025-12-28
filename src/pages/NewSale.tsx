@@ -197,7 +197,26 @@ export default function NewSale() {
       setSaleItemCount(itemCount);
       setCreatedSale(newSale);
       
+      // Limpiar carrito y resetear estados
       clearCart();
+      
+      // Si es venta a crédito, resetear también los campos de crédito
+      if (selectedPayment === 'credito') {
+        setSelectedClient(null);
+        setClientSearchOpen(false);
+        setClientSearchTerm('');
+        setMesesCredito(1);
+        setMesesCreditoInput('1');
+        setTasaInteres(0);
+        setTasaInteresInput('');
+        setCuotaInicialHabilitada(false);
+        setCuotaInicial(0);
+        setCuotaInicialInput('');
+      }
+      
+      // Resetear método de pago a efectivo después de completar la venta
+      setSelectedPayment('efectivo');
+      
       setShowSuccessDialog(true);
       toast.success('Venta registrada exitosamente');
     } catch (error: any) {
