@@ -315,6 +315,12 @@ ventacontrol-pro/
   - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
   - ✅ Corrección de mensajes duplicados en la edición de movimientos
 
+- ✅ **Mejoras en v2.15.0:**
+  - Internacionalización completa a español: Todos los textos de la interfaz traducidos al español
+  - Prevención de traducción automática del navegador: Agregado `lang="es"`, meta tag `notranslate` y atributo `translate="no"` para evitar conflictos con React cuando el navegador intenta traducir la página
+  - Corrección de textos en componentes UI: Paginación (Anterior/Siguiente), diálogos (Cerrar), sidebar (Alternar barra lateral), página 404
+  - Solución de errores de DOM: Eliminado el error `NotFoundError: Failed to execute 'insertBefore'` causado por la traducción automática del navegador
+
 - ✅ **Mejoras en v2.14.0:**
   - Corrección del selector de clientes en móvil/tablet: Se aumentó el z-index del Popover para que aparezca correctamente sobre el Sheet del carrito cuando se selecciona el método de pago "Crédito"
   - Limpieza automática del carrito en ventas a crédito: Al completar una venta a crédito, el sistema ahora limpia automáticamente el carrito y resetea todos los campos relacionados con crédito (cliente, cuotas, interés, cuota inicial) para preparar el formulario para la próxima venta
@@ -419,6 +425,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.10.0  
+**Versión**: 2.15.0  
 **Última actualización**: Diciembre 2025  
-**Estado**: Sistema completo con Mejoras en Gestión de Servicios y UX - En producción
+**Estado**: Sistema completo con Internacionalización en Español - En producción
