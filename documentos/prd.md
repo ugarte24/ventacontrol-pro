@@ -521,6 +521,7 @@ Los reportes se generan dinámicamente a partir de:
 **Cambios en v2.14.0:**
 - Corrección del selector de clientes en móvil/tablet: Se aumentó el z-index del Popover para que aparezca correctamente sobre el Sheet del carrito cuando se selecciona el método de pago "Crédito"
 - Limpieza automática del carrito en ventas a crédito: Al completar una venta a crédito, el sistema ahora limpia automáticamente el carrito y resetea todos los campos relacionados con crédito (cliente, cuotas, interés, cuota inicial) para preparar el formulario para la próxima venta
+- Mejoras de seguridad: Se eliminaron todas las credenciales hardcodeadas de la documentación y se mejoró el `.gitignore` para proteger archivos sensibles (variables de entorno, secrets, credenciales)
 
 **Cambios en v2.13.0:**
 - Mejora en Dashboard - Últimas Ventas: Se simplificó la visualización de las últimas ventas para mostrar solo el nombre del producto, fecha y hora, con indicador "+X más" cuando hay múltiples productos, eliminando la cantidad total de productos para una vista más limpia y consistente con el historial de ventas
