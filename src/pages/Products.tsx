@@ -281,7 +281,15 @@ export default function Products() {
       setImagePreview(null);
       setIsUploadingImage(false);
     } catch (error: any) {
-      toast.error(error.message || 'Error al crear producto');
+      // Detectar específicamente errores de código duplicado
+      const errorMessage = error.message?.toLowerCase() || '';
+      if (errorMessage.includes('código') || errorMessage.includes('codigo') || 
+          errorMessage.includes('code') || errorMessage.includes('ya existe') ||
+          errorMessage.includes('duplicate') || errorMessage.includes('unique')) {
+        toast.error('El código ya existe. Por favor, usa un código diferente.');
+      } else {
+        toast.error(error.message || 'Error al crear producto');
+      }
       setIsUploadingImage(false);
     }
   };
@@ -298,7 +306,7 @@ export default function Products() {
       try {
         // Comprimir la imagen
         toast.loading('Comprimiendo imagen...', { id: 'compress' });
-        const compressedFile = await compressImage(file, 2.5);
+        const compressedFile = await compressImage(file, 1.0);
         toast.dismiss('compress');
         
         setSelectedImage(compressedFile);
@@ -373,7 +381,7 @@ export default function Products() {
             
             // Comprimir si es necesario
             toast.loading('Comprimiendo imagen...', { id: 'compress-camera' });
-            const processedFile = await compressImage(originalFile, 2.5);
+            const processedFile = await compressImage(originalFile, 1.0);
             toast.dismiss('compress-camera');
             
             if (processedFile.size < originalFile.size) {
@@ -450,7 +458,7 @@ export default function Products() {
             const originalFile = new File([blob], `foto-${Date.now()}.jpg`, { type: 'image/jpeg' });
             
             toast.loading('Comprimiendo imagen...', { id: 'compress-camera-edit' });
-            const processedFile = await compressImage(originalFile, 2.5);
+            const processedFile = await compressImage(originalFile, 1.0);
             toast.dismiss('compress-camera-edit');
             
             // Si había una imagen marcada para eliminación, cancelarla
@@ -549,8 +557,15 @@ export default function Products() {
       setShouldDeleteImage(false);
       setIsUploadingEditImage(false);
     } catch (error: any) {
-      console.error('Error general al actualizar producto:', error);
-      toast.error(error.message || 'Error al actualizar producto');
+      // Detectar específicamente errores de código duplicado
+      const errorMessage = error.message?.toLowerCase() || '';
+      if (errorMessage.includes('código') || errorMessage.includes('codigo') || 
+          errorMessage.includes('code') || errorMessage.includes('ya existe') ||
+          errorMessage.includes('duplicate') || errorMessage.includes('unique')) {
+        toast.error('El código ya existe. Por favor, usa un código diferente.');
+      } else {
+        toast.error(error.message || 'Error al actualizar producto');
+      }
       setIsUploadingEditImage(false);
     }
   };
@@ -567,7 +582,7 @@ export default function Products() {
       try {
         // Comprimir la imagen
         toast.loading('Comprimiendo imagen...', { id: 'compress-edit' });
-        const compressedFile = await compressImage(file, 2.5);
+        const compressedFile = await compressImage(file, 1.0);
         toast.dismiss('compress-edit');
         
         // Si había una imagen marcada para eliminación, cancelarla

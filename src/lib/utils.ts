@@ -55,12 +55,12 @@ export function getLocalTimeISO(): string {
 }
 
 /**
- * Comprime una imagen para que pese máximo entre 2-3 MB
+ * Comprime una imagen para que pese máximo 1 MB o menor
  * @param file - Archivo de imagen a comprimir
- * @param maxSizeMB - Tamaño máximo en MB (por defecto 2.5)
+ * @param maxSizeMB - Tamaño máximo en MB (por defecto 1.0)
  * @returns Promise con el archivo comprimido como Blob
  */
-export async function compressImage(file: File, maxSizeMB: number = 2.5): Promise<File> {
+export async function compressImage(file: File, maxSizeMB: number = 1.0): Promise<File> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);

@@ -10,6 +10,17 @@ export function handleSupabaseError(error: PostgrestError | Error | null): strin
       case 'PGRST116':
         return 'No se encontraron registros';
       case '23505':
+        // Error de violación de constraint único
+        // Verificar si es específicamente el código duplicado
+        const errorMessage = supabaseError.message?.toLowerCase() || '';
+        const errorDetails = supabaseError.details?.toLowerCase() || '';
+        
+        if (errorMessage.includes('codigo') || errorDetails.includes('codigo') || 
+            errorMessage.includes('code') || errorDetails.includes('code') ||
+            errorMessage.includes('unique') && (errorMessage.includes('codigo') || errorMessage.includes('code'))) {
+          return 'El código ya existe. Por favor, usa un código diferente.';
+        }
+        
         return 'Este registro ya existe';
       case '23503':
         return 'Error de referencia: el registro relacionado no existe';
