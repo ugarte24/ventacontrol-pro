@@ -23,16 +23,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -52,7 +42,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { 
@@ -62,13 +51,12 @@ import {
   User, 
   MoreHorizontal, 
   Edit, 
-  Trash2,
   Key,
   Search,
   Loader,
   X
 } from 'lucide-react';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useToggleUserStatus, useUpdateUserPassword } from '@/hooks/useUsers';
+import { useUsers, useCreateUser, useUpdateUser, useToggleUserStatus, useUpdateUserPassword } from '@/hooks/useUsers';
 import { usersService } from '@/services/users.service';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts';
@@ -92,7 +80,7 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').optional(),
   usuario: z.string().min(3, 'El usuario debe tener al menos 3 caracteres').optional(),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  email: z.string().email('Email inválido').optional().or(z.literal('').transform(() => undefined)),
   rol: z.enum(['admin', 'vendedor']).optional(),
   estado: z.enum(['activo', 'inactivo']).optional(),
 });
@@ -105,7 +93,6 @@ export default function Users() {
   const { data: users = [], isLoading } = useUsers();
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
-  const deleteUserMutation = useDeleteUser();
   const toggleStatusMutation = useToggleUserStatus();
   const updatePasswordMutation = useUpdateUserPassword();
 
@@ -113,7 +100,6 @@ export default function Users() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -210,17 +196,6 @@ export default function Users() {
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-    try {
-      await deleteUserMutation.mutateAsync(selectedUser.id);
-      toast.success('Usuario eliminado exitosamente');
-      setIsDeleteDialogOpen(false);
-      setSelectedUser(null);
-    } catch (error: any) {
-      toast.error(error.message || 'Error al eliminar usuario');
-    }
-  };
 
   const handleToggleStatus = async (user: UserType) => {
     try {
@@ -285,10 +260,6 @@ export default function Users() {
     setIsPasswordDialogOpen(true);
   };
 
-  const openDeleteDialog = (user: UserType) => {
-    setSelectedUser(user);
-    setIsDeleteDialogOpen(true);
-  };
 
   return (
     <DashboardLayout title="Gestión de Usuarios">
@@ -475,15 +446,6 @@ export default function Users() {
                                 disabled={toggleStatusMutation.isPending}
                               >
                                 {user.estado === 'activo' ? 'Desactivar' : 'Activar'}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => openDeleteDialog(user)}
-                                className="text-destructive"
-                                disabled={user.id === currentUser?.id}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -736,13 +698,13 @@ export default function Users() {
                 <div className="grid gap-2">
                   <Label htmlFor="edit-rol">Rol</Label>
                   <Select
-                    value={updateForm.watch('rol') || selectedUser?.rol}
+                    value={updateForm.watch('rol') || selectedUser?.rol || 'vendedor'}
                     onValueChange={(value) => updateForm.setValue('rol', value as UserRole)}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger id="edit-rol">
+                      <SelectValue placeholder="Seleccionar rol" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[10001]">
                       <SelectItem value="admin">Administrador</SelectItem>
                       <SelectItem value="vendedor">Vendedor</SelectItem>
                     </SelectContent>
@@ -751,13 +713,13 @@ export default function Users() {
                 <div className="grid gap-2">
                   <Label htmlFor="edit-estado">Estado</Label>
                   <Select
-                    value={updateForm.watch('estado') || selectedUser?.estado}
+                    value={updateForm.watch('estado') || selectedUser?.estado || 'activo'}
                     onValueChange={(value) => updateForm.setValue('estado', value as 'activo' | 'inactivo')}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger id="edit-estado">
+                      <SelectValue placeholder="Seleccionar estado" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[10001]">
                       <SelectItem value="activo">Activo</SelectItem>
                       <SelectItem value="inactivo">Inactivo</SelectItem>
                     </SelectContent>
@@ -850,35 +812,6 @@ export default function Users() {
           </DialogContent>
         </Dialog>
 
-        {/* Delete User Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. Se eliminará permanentemente el usuario{' '}
-                <strong>{selectedUser?.nombre}</strong> y todos sus datos asociados.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteUser}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={deleteUserMutation.isPending}
-              >
-                {deleteUserMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Eliminando...
-                  </>
-                ) : (
-                  'Eliminar'
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </DashboardLayout>
   );

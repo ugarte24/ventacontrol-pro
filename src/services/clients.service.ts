@@ -4,11 +4,16 @@ import { handleSupabaseError } from '@/lib/error-handler';
 import { getLocalDateTimeISO } from '@/lib/utils';
 
 export const clientsService = {
-  async getAll(): Promise<Client[]> {
-    const { data, error } = await supabase
+  async getAll(includeInactive = true): Promise<Client[]> {
+    let query = supabase
       .from('clientes')
-      .select('*')
-      .order('nombre');
+      .select('*');
+    
+    if (!includeInactive) {
+      query = query.eq('estado', 'activo');
+    }
+
+    const { data, error } = await query.order('nombre');
 
     if (error) throw new Error(handleSupabaseError(error));
     return data as Client[];
@@ -51,6 +56,7 @@ export const clientsService = {
         ci_nit: client.ci_nit,
         telefono: client.telefono,
         direccion: client.direccion,
+        estado: client.estado || 'activo',
         fecha_registro: fechaRegistro, // Fecha explícita en hora local
         created_at: createdAt, // Timestamp explícito en hora local
       })
@@ -80,12 +86,32 @@ export const clientsService = {
   },
 
   async delete(id: string): Promise<void> {
+    // Soft delete: cambiar estado a inactivo
+    // Obtener timestamp de actualización en hora local
+    const updatedAt = getLocalDateTimeISO();
+    
     const { error } = await supabase
       .from('clientes')
-      .delete()
+      .update({ 
+        estado: 'inactivo',
+        updated_at: updatedAt, // Timestamp explícito en hora local
+      })
       .eq('id', id);
 
     if (error) throw new Error(handleSupabaseError(error));
+  },
+
+  async toggleStatus(id: string): Promise<Client> {
+    // Obtener el estado actual
+    const current = await this.getById(id);
+    if (!current) {
+      throw new Error('Cliente no encontrado');
+    }
+
+    // Si no tiene estado definido, asumir 'activo' (para compatibilidad con datos antiguos)
+    const currentStatus = current.estado || 'activo';
+    const newStatus = currentStatus === 'activo' ? 'inactivo' : 'activo';
+    return this.update(id, { estado: newStatus });
   },
 };
 

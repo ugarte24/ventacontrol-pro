@@ -40,6 +40,7 @@ export interface Client {
   telefono?: string;
   direccion?: string;
   fecha_registro: string;
+  estado?: 'activo' | 'inactivo';
 }
 
 export type PaymentMethod = 'efectivo' | 'qr' | 'transferencia' | 'credito';

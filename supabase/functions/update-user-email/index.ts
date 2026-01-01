@@ -42,26 +42,41 @@ serve(async (req) => {
       )
     }
 
-    // Verificar que el usuario sea administrador
+    // Obtener userId y email del cuerpo de la petición
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError: any) {
+      return new Response(
+        JSON.stringify({ error: 'Error al procesar el cuerpo de la petición. Asegúrate de enviar un JSON válido.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    const { userId, email } = requestBody || {};
+    
+    if (!userId || !email) {
+      return new Response(
+        JSON.stringify({ error: 'userId y email son requeridos' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Verificar que el usuario sea administrador O que esté actualizando su propio email
     const { data: userData, error: roleError } = await supabaseClient
       .from('usuarios')
       .select('rol')
       .eq('id', user.id)
       .single()
 
-    if (roleError || userData?.rol !== 'admin') {
+    const isAdmin = userData?.rol === 'admin';
+    const isOwnUser = user.id === userId;
+    
+    // Permitir si es admin o si está actualizando su propio email
+    if (!isAdmin && !isOwnUser) {
       return new Response(
-        JSON.stringify({ error: 'Only administrators can update user emails' }),
+        JSON.stringify({ error: 'Solo los administradores pueden actualizar emails de otros usuarios' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Obtener userId y email del cuerpo de la petición
-    const { userId, email } = await req.json()
-    if (!userId || !email) {
-      return new Response(
-        JSON.stringify({ error: 'userId and email are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -80,15 +95,41 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Actualizar el email del usuario
+    // Actualizar el email del usuario directamente
+    // Si el email ya está en uso, Supabase Auth lo indicará en el error
     const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
       { email: email.trim() }
     )
 
-    if (updateError || !updatedUser) {
+    if (updateError) {
+      // Mensajes de error más descriptivos basados en el error de Supabase
+      let errorMessage = 'Error al actualizar el correo electrónico';
+      
+      const errorMsg = updateError.message?.toLowerCase() || '';
+      
+      if (errorMsg.includes('already registered') || 
+          errorMsg.includes('already exists') || 
+          errorMsg.includes('user already registered') ||
+          errorMsg.includes('email address already registered')) {
+        errorMessage = 'Este correo electrónico ya está en uso por otro usuario';
+      } else if (errorMsg.includes('invalid') || errorMsg.includes('format')) {
+        errorMessage = 'El formato del correo electrónico no es válido';
+      } else if (errorMsg.includes('not found') || errorMsg.includes('user not found')) {
+        errorMessage = 'El usuario no fue encontrado';
+      } else {
+        errorMessage = updateError.message || 'Error al actualizar el correo electrónico';
+      }
+      
       return new Response(
-        JSON.stringify({ error: updateError?.message || 'Failed to update user email' }),
+        JSON.stringify({ error: errorMessage }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    if (!updatedUser) {
+      return new Response(
+        JSON.stringify({ error: 'No se pudo actualizar el correo electrónico. El usuario no fue encontrado.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -97,9 +138,13 @@ serve(async (req) => {
       JSON.stringify({ success: true, email: updatedUser.user.email }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-  } catch (error) {
+  } catch (error: any) {
+    // Capturar cualquier error no esperado y devolver un mensaje descriptivo
+    const errorMessage = error?.message || 'Error desconocido al procesar la solicitud';
+    console.error('Error en update-user-email:', errorMessage, error);
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: `Error al actualizar el correo electrónico: ${errorMessage}` }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

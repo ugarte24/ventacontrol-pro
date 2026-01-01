@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Table, 
   TableBody, 
@@ -21,20 +22,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -53,7 +43,6 @@ import {
   Users, 
   Edit, 
   MoreHorizontal, 
-  Trash2,
   Loader,
   X
 } from 'lucide-react';
@@ -61,7 +50,7 @@ import {
   useClients, 
   useCreateClient, 
   useUpdateClient, 
-  useDeleteClient
+  useToggleClientStatus
 } from '@/hooks/useClients';
 import { Client } from '@/types';
 import { toast } from 'sonner';
@@ -92,12 +81,11 @@ export default function Clients() {
   const { data: clients = [], isLoading } = useClients();
   const createClientMutation = useCreateClient();
   const updateClientMutation = useUpdateClient();
-  const deleteClientMutation = useDeleteClient();
+  const toggleStatusMutation = useToggleClientStatus();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -171,15 +159,12 @@ export default function Clients() {
     }
   };
 
-  const handleDeleteClient = async () => {
-    if (!selectedClient) return;
+  const handleToggleStatus = async (client: Client) => {
     try {
-      await deleteClientMutation.mutateAsync(selectedClient.id);
-      toast.success('Cliente eliminado exitosamente');
-      setIsDeleteDialogOpen(false);
-      setSelectedClient(null);
+      await toggleStatusMutation.mutateAsync(client.id);
+      toast.success(`Cliente ${client.estado === 'activo' ? 'desactivado' : 'activado'} exitosamente`);
     } catch (error: any) {
-      toast.error(error.message || 'Error al eliminar cliente');
+      toast.error(error.message || 'Error al cambiar estado');
     }
   };
 
@@ -194,10 +179,6 @@ export default function Clients() {
     setIsEditDialogOpen(true);
   };
 
-  const openDeleteDialog = (client: Client) => {
-    setSelectedClient(client);
-    setIsDeleteDialogOpen(true);
-  };
 
   return (
     <DashboardLayout title="Gestión de Clientes">
@@ -280,6 +261,7 @@ export default function Clients() {
                         <TableHead>CI/NIT</TableHead>
                         <TableHead>Teléfono</TableHead>
                         <TableHead>Dirección</TableHead>
+                        <TableHead>Estado</TableHead>
                         <TableHead className="text-center">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -308,6 +290,14 @@ export default function Clients() {
                         <TableCell className="text-muted-foreground">
                           {client.direccion || '-'}
                         </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={client.estado === 'activo' ? 'default' : 'secondary'}
+                            className="capitalize"
+                          >
+                            {client.estado || 'activo'}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-center">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -320,13 +310,11 @@ export default function Clients() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 Editar
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
                               <DropdownMenuItem 
-                                onClick={() => openDeleteDialog(client)}
-                                className="text-destructive"
+                                onClick={() => handleToggleStatus(client)}
+                                disabled={toggleStatusMutation.isPending}
                               >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar
+                                {client.estado === 'activo' ? 'Desactivar' : 'Activar'}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -549,31 +537,6 @@ export default function Clients() {
           </DialogContent>
         </Dialog>
 
-        {/* Delete Client Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. Se eliminará permanentemente el cliente{' '}
-                <strong>{selectedClient?.nombre}</strong>.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteClient}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={deleteClientMutation.isPending}
-              >
-                {deleteClientMutation.isPending && (
-                  <Loader className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Eliminar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </DashboardLayout>
   );

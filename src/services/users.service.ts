@@ -230,29 +230,57 @@ export const usersService = {
     // Si hay email para actualizar
     if (email && email.trim() !== '') {
       try {
-        // Si es el usuario actual, usar auth.updateUser directamente
-        if (isOwnUser) {
-          const { error: authError } = await supabase.auth.updateUser({ email: email.trim() });
-          if (authError) {
-            throw new Error(`Error al actualizar email: ${authError.message}`);
-          }
-        }
-        // Si es admin, usar Edge Function para actualizar email de cualquier usuario
-        else if (isAdmin) {
+        // Usar Edge Function para actualizar email (tanto para admin como para usuario actual)
+        // Esto proporciona mejor manejo de errores y consistencia
+        if (isAdmin || isOwnUser) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
-            const { data: functionData, error: functionError } = await supabase.functions.invoke('update-user-email', {
-              body: {
-                userId: id,
-                email: email.trim(),
-              },
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-              },
-            });
+            try {
+              const { data: functionData, error: functionError } = await supabase.functions.invoke('update-user-email', {
+                body: {
+                  userId: id,
+                  email: email.trim(),
+                },
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              });
 
-            if (functionError) {
-              throw new Error(`Error al actualizar email: ${functionError.message || 'La Edge Function update-user-email no está disponible'}`);
+              // Si hay un error en la respuesta
+              if (functionError) {
+                // Intentar extraer el mensaje de error
+                let errorMessage = functionError.message || 'La Edge Function update-user-email no está disponible';
+                
+                // Si hay data en la respuesta, puede contener el mensaje de error
+                if (functionData && typeof functionData === 'object' && 'error' in functionData) {
+                  errorMessage = functionData.error as string;
+                }
+                
+                throw new Error(`Error al actualizar email: ${errorMessage}`);
+              }
+              
+              // Verificar si la respuesta indica un error en el body
+              if (functionData && typeof functionData === 'object' && 'error' in functionData) {
+                throw new Error(`Error al actualizar email: ${functionData.error as string}`);
+              }
+              
+              // Verificar si la respuesta indica éxito
+              if (!functionData || (typeof functionData === 'object' && !('success' in functionData) && !('email' in functionData))) {
+                throw new Error('La Edge Function no devolvió una respuesta válida');
+              }
+            } catch (invokeError: any) {
+              // Si el error ya tiene un mensaje descriptivo, lanzarlo tal cual
+              if (invokeError.message && invokeError.message.includes('Error al actualizar email')) {
+                throw invokeError;
+              }
+              
+              // Si es un error de red o conexión
+              if (invokeError.message?.includes('fetch') || invokeError.message?.includes('network')) {
+                throw new Error('Error de conexión al actualizar el email. Verifica tu conexión a internet.');
+              }
+              
+              // Error genérico
+              throw new Error(`Error al actualizar email: ${invokeError.message || 'Error desconocido'}`);
             }
           } else {
             throw new Error('No tienes una sesión activa. Por favor inicia sesión nuevamente.');

@@ -88,7 +88,6 @@ import {
   useProducts, 
   useCreateProduct, 
   useUpdateProduct, 
-  useDeleteProduct,
   useAdjustStock,
   useToggleProductStatus
 } from '@/hooks/useProducts';
@@ -140,7 +139,6 @@ export default function Products() {
   const { data: categories = [] } = useCategories();
   const createProductMutation = useCreateProduct();
   const updateProductMutation = useUpdateProduct();
-  const deleteProductMutation = useDeleteProduct();
   const adjustStockMutation = useAdjustStock();
   const toggleStatusMutation = useToggleProductStatus();
 
@@ -148,7 +146,6 @@ export default function Products() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isStockDialogOpen, setIsStockDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -652,18 +649,6 @@ export default function Products() {
     }
   };
 
-  const handleDeleteProduct = async () => {
-    if (!selectedProduct) return;
-    try {
-      await deleteProductMutation.mutateAsync(selectedProduct.id);
-      toast.success('Producto eliminado exitosamente');
-      setIsDeleteDialogOpen(false);
-      setSelectedProduct(null);
-    } catch (error: any) {
-      toast.error(error.message || 'Error al eliminar producto');
-    }
-  };
-
   const handleToggleStatus = async (product: Product) => {
     try {
       await toggleStatusMutation.mutateAsync(product.id);
@@ -697,11 +682,6 @@ export default function Products() {
       nuevoStock: product.stock_actual,
     });
     setIsStockDialogOpen(true);
-  };
-
-  const openDeleteDialog = (product: Product) => {
-    setSelectedProduct(product);
-    setIsDeleteDialogOpen(true);
   };
 
   // Limpiar streams de cámara cuando el componente se desmonte o cambien los estados
@@ -912,14 +892,6 @@ export default function Products() {
                                 disabled={toggleStatusMutation.isPending}
                               >
                                 {product.estado === 'activo' ? 'Desactivar' : 'Activar'}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => openDeleteDialog(product)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1646,36 +1618,6 @@ export default function Products() {
             </form>
           </DialogContent>
         </Dialog>
-
-        {/* Delete Product Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. Se eliminará permanentemente el producto{' '}
-                <strong>{selectedProduct?.nombre}</strong>.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteProduct}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={deleteProductMutation.isPending}
-              >
-                {deleteProductMutation.isPending ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Eliminando...
-                  </>
-                ) : (
-                  'Eliminar'
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
 
         {/* Diálogo de cámara para crear producto */}
         <Dialog open={isCameraOpen} onOpenChange={(open) => {

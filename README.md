@@ -319,6 +319,12 @@ ventacontrol-pro/
   - Mensajes de error mejorados: Mensajes más claros y específicos cuando el código de producto ya existe ("El código ya existe. Por favor, usa un código diferente.")
   - Compresión de imágenes optimizada: Límite de compresión reducido de 2.5MB a 1MB para optimizar el uso de storage
   - Mejoras en detección de errores: Mejor detección de errores de código duplicado tanto en creación como en edición de productos
+  - Soft delete para productos y clientes: Se removió la opción de eliminar físicamente productos y clientes, reemplazándola por cambio de estado (activo/inactivo) para preservar datos históricos
+  - Columna de estado en lista de clientes: Se agregó la columna "Estado" en la tabla de clientes para visualizar fácilmente el estado activo/inactivo
+  - Eliminación de opción "Eliminar" en usuarios: Se removió la opción de eliminar usuarios de la lista, manteniendo solo la funcionalidad de activar/desactivar
+  - Mejoras en actualización de emails: Implementación mejorada de actualización de emails usando Edge Function para mejor manejo de errores y permisos
+  - Actualización de propio email: Los usuarios ahora pueden actualizar su propio email además de los administradores
+  - Corrección de Select en formulario de editar usuario: Se corrigió el problema donde los Select de Rol y Estado no se desplegaban correctamente aumentando el z-index
 
 - ✅ **Mejoras en v2.16.0:**
   - Sistema de cámara mejorado: Implementación de captura de fotos usando Dialog de shadcn/ui con mejor manejo de estado y limpieza automática de recursos
