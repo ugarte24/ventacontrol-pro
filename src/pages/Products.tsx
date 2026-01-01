@@ -81,7 +81,8 @@ import {
   Upload,
   Image as ImageIcon,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Camera
 } from 'lucide-react';
 import { 
   useProducts, 
@@ -98,6 +99,7 @@ import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { compressImage } from '@/lib/utils';
 import * as z from 'zod';
 import { storageService } from '@/services/storage.service';
 import { cn } from '@/lib/utils';
@@ -179,6 +181,17 @@ export default function Products() {
   const [editSelectedImage, setEditSelectedImage] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
   const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
+  const [shouldDeleteImage, setShouldDeleteImage] = useState(false);
+
+  // Estados para cámara en creación
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
+
+  // Estados para cámara en edición
+  const [isEditCameraOpen, setIsEditCameraOpen] = useState(false);
+  const [editCameraStream, setEditCameraStream] = useState<MediaStream | null>(null);
+  const [editVideoRef, setEditVideoRef] = useState<HTMLVideoElement | null>(null);
 
   const createForm = useForm<CreateProductForm>({
     resolver: zodResolver(createProductSchema),
@@ -273,7 +286,7 @@ export default function Products() {
     }
   };
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       // Validar tipo de archivo
@@ -281,28 +294,198 @@ export default function Products() {
         toast.error('Por favor selecciona un archivo de imagen');
         return;
       }
-      
-      // Validar tamaño (máximo 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('La imagen debe ser menor a 5MB');
-        return;
-      }
 
-      setSelectedImage(file);
-      
-      // Crear vista previa
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Comprimir la imagen
+        toast.loading('Comprimiendo imagen...', { id: 'compress' });
+        const compressedFile = await compressImage(file, 2.5);
+        toast.dismiss('compress');
+        
+        setSelectedImage(compressedFile);
+        
+        // Crear vista previa
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (error: any) {
+        toast.dismiss('compress');
+        toast.error(error.message || 'Error al procesar la imagen');
+      }
     }
+    // Resetear el input para permitir seleccionar el mismo archivo nuevamente
+    event.target.value = '';
   };
 
   const handleRemoveImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
   };
+
+  // Función para abrir la cámara (sistema que funciona)
+  const openCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Cámara trasera en móviles
+      });
+      setCameraStream(stream);
+      setIsCameraOpen(true);
+    } catch (error: any) {
+      console.error('Error al acceder a la cámara:', error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error('Permiso de cámara denegado. Por favor, permite el acceso a la cámara en la configuración del navegador.');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error('No se encontró ninguna cámara disponible');
+      } else {
+        toast.error('No se pudo acceder a la cámara. Verifica los permisos.');
+      }
+    }
+  };
+
+  const closeCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setIsCameraOpen(false);
+    setVideoRef(null);
+  };
+
+  const capturePhoto = async () => {
+    if (!videoRef) {
+      toast.error('La cámara aún no está lista');
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.videoWidth;
+    canvas.height = videoRef.videoHeight;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      ctx.drawImage(videoRef, 0, 0);
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          try {
+            // Convertir blob a File
+            const originalFile = new File([blob], `foto-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            
+            // Comprimir si es necesario
+            toast.loading('Comprimiendo imagen...', { id: 'compress-camera' });
+            const processedFile = await compressImage(originalFile, 2.5);
+            toast.dismiss('compress-camera');
+            
+            if (processedFile.size < originalFile.size) {
+              const reductionPercent = ((originalFile.size - processedFile.size) / originalFile.size * 100).toFixed(1);
+              toast.success(`Foto capturada y comprimida: ${reductionPercent}% de reducción`);
+            } else {
+              toast.success('Foto capturada exitosamente');
+            }
+
+            setSelectedImage(processedFile);
+            
+            // Crear vista previa
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(processedFile);
+            
+            closeCamera();
+          } catch (error: any) {
+            toast.dismiss('compress-camera');
+            toast.error(error.message || 'Error al procesar la foto');
+          }
+        }
+      }, 'image/jpeg', 0.9);
+    }
+  };
+
+  // Función para abrir la cámara en edición
+  const openEditCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' }
+      });
+      setEditCameraStream(stream);
+      setIsEditCameraOpen(true);
+    } catch (error: any) {
+      console.error('Error al acceder a la cámara:', error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error('Permiso de cámara denegado. Por favor, permite el acceso a la cámara en la configuración del navegador.');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error('No se encontró ninguna cámara disponible');
+      } else {
+        toast.error('No se pudo acceder a la cámara. Verifica los permisos.');
+      }
+    }
+  };
+
+  const closeEditCamera = () => {
+    if (editCameraStream) {
+      editCameraStream.getTracks().forEach(track => track.stop());
+      setEditCameraStream(null);
+    }
+    setIsEditCameraOpen(false);
+    setEditVideoRef(null);
+  };
+
+  const captureEditPhoto = async () => {
+    if (!editVideoRef) {
+      toast.error('La cámara aún no está lista');
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = editVideoRef.videoWidth;
+    canvas.height = editVideoRef.videoHeight;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      ctx.drawImage(editVideoRef, 0, 0);
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          try {
+            const originalFile = new File([blob], `foto-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            
+            toast.loading('Comprimiendo imagen...', { id: 'compress-camera-edit' });
+            const processedFile = await compressImage(originalFile, 2.5);
+            toast.dismiss('compress-camera-edit');
+            
+            // Si había una imagen marcada para eliminación, cancelarla
+            if (shouldDeleteImage) {
+              setShouldDeleteImage(false);
+            }
+            
+            if (processedFile.size < originalFile.size) {
+              const reductionPercent = ((originalFile.size - processedFile.size) / originalFile.size * 100).toFixed(1);
+              toast.success(`Foto capturada y comprimida: ${reductionPercent}% de reducción`);
+            } else {
+              toast.success('Foto capturada exitosamente');
+            }
+            
+            toast.info('La imagen se guardará cuando hagas clic en "Guardar cambios"');
+
+            setEditSelectedImage(processedFile);
+            
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setEditImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(processedFile);
+            
+            closeEditCamera();
+          } catch (error: any) {
+            toast.dismiss('compress-camera-edit');
+            toast.error(error.message || 'Error al procesar la foto');
+          }
+        }
+      }, 'image/jpeg', 0.9);
+    }
+  };
+
+  // Funciones antiguas eliminadas - ahora usamos openCamera, closeCamera, capturePhoto, openEditCamera, closeEditCamera, captureEditPhoto
 
   const handleUpdateProduct = async (data: UpdateProductForm) => {
     if (!selectedProduct) return;
@@ -312,7 +495,19 @@ export default function Products() {
       let imagenUrl: string | undefined = undefined;
       let imagenAnterior: string | null = null;
 
-      // Si hay una nueva imagen seleccionada, subirla
+      // PRIMERO: Si se marcó la imagen para eliminación, eliminar del storage ANTES de cualquier otra operación
+      if (shouldDeleteImage && selectedProduct.imagen_url) {
+        try {
+          await storageService.deleteProductImage(selectedProduct.imagen_url);
+          toast.success('Imagen eliminada del storage');
+        } catch (deleteError: any) {
+          toast.error(`Error al eliminar imagen del storage: ${deleteError.message || 'Error desconocido'}`);
+          setIsUploadingEditImage(false);
+          return; // No continuar si falla la eliminación
+        }
+      }
+
+      // SEGUNDO: Si hay una nueva imagen seleccionada, subirla
       if (editSelectedImage) {
         try {
           imagenUrl = await storageService.uploadProductImage(editSelectedImage, selectedProduct.id);
@@ -325,22 +520,23 @@ export default function Products() {
         }
       }
 
-      // Actualizar el producto
+      // TERCERO: Actualizar el producto en la base de datos
       await updateProductMutation.mutateAsync({
         id: selectedProduct.id,
         updates: {
           ...data,
           ...(imagenUrl && { imagen_url: imagenUrl }),
+          ...(shouldDeleteImage && !imagenUrl && { imagen_url: null }),
         },
       });
 
-      // Si se subió una nueva imagen y había una anterior, eliminar la anterior
+      // CUARTO: Si se subió una nueva imagen y había una anterior, eliminar la anterior
       if (imagenUrl && imagenAnterior) {
         try {
           await storageService.deleteProductImage(imagenAnterior);
-        } catch (deleteError) {
-          console.error('Error al eliminar imagen anterior:', deleteError);
-          // No es crítico, solo registramos el error
+        } catch (deleteError: any) {
+          // No es crítico, solo registramos el error pero continuamos
+          toast.error('El producto se actualizó pero no se pudo eliminar la imagen anterior del storage');
         }
       }
 
@@ -350,14 +546,16 @@ export default function Products() {
       updateForm.reset();
       setEditSelectedImage(null);
       setEditImagePreview(null);
+      setShouldDeleteImage(false);
       setIsUploadingEditImage(false);
     } catch (error: any) {
+      console.error('Error general al actualizar producto:', error);
       toast.error(error.message || 'Error al actualizar producto');
       setIsUploadingEditImage(false);
     }
   };
 
-  const handleEditImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       // Validar tipo de archivo
@@ -365,26 +563,40 @@ export default function Products() {
         toast.error('Por favor selecciona un archivo de imagen');
         return;
       }
-      
-      // Validar tamaño (máximo 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('La imagen debe ser menor a 5MB');
-        return;
-      }
 
-      setEditSelectedImage(file);
-      
-      // Crear vista previa
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Comprimir la imagen
+        toast.loading('Comprimiendo imagen...', { id: 'compress-edit' });
+        const compressedFile = await compressImage(file, 2.5);
+        toast.dismiss('compress-edit');
+        
+        // Si había una imagen marcada para eliminación, cancelarla
+        if (shouldDeleteImage) {
+          setShouldDeleteImage(false);
+        }
+        
+        setEditSelectedImage(compressedFile);
+        
+        // Crear vista previa
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setEditImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+        
+        toast.info('La imagen se guardará cuando hagas clic en "Guardar cambios"');
+      } catch (error: any) {
+        toast.dismiss('compress-edit');
+        toast.error(error.message || 'Error al procesar la imagen');
+      }
     }
+    // Resetear el input para permitir seleccionar el mismo archivo nuevamente
+    event.target.value = '';
   };
 
   const handleRemoveEditImage = () => {
     setEditSelectedImage(null);
+    setShouldDeleteImage(false);
     // Si hay una imagen existente, restaurar la vista previa a la original
     if (selectedProduct?.imagen_url) {
       setEditImagePreview(selectedProduct.imagen_url);
@@ -393,27 +605,19 @@ export default function Products() {
     }
   };
 
-  const handleDeleteEditImage = async () => {
+  const handleDeleteEditImage = () => {
     if (!selectedProduct) return;
     
-    try {
-      // Eliminar imagen del storage si existe
-      if (selectedProduct.imagen_url) {
-        await storageService.deleteProductImage(selectedProduct.imagen_url);
-      }
-      
-      // Actualizar producto para eliminar la URL de la imagen
-      await updateProductMutation.mutateAsync({
-        id: selectedProduct.id,
-        updates: { imagen_url: null },
-      });
-      
-      toast.success('Imagen eliminada exitosamente');
-      setEditImagePreview(null);
+    // Si hay una nueva imagen seleccionada, cancelarla primero
+    if (editSelectedImage) {
       setEditSelectedImage(null);
-    } catch (error: any) {
-      toast.error(error.message || 'Error al eliminar imagen');
     }
+    
+    // Solo marcar la imagen para eliminación, no eliminar del storage aún
+    // La eliminación real ocurrirá cuando se guarde el formulario
+    setShouldDeleteImage(true);
+    setEditImagePreview(null);
+    toast.info('La imagen se eliminará cuando guardes los cambios');
   };
 
   const handleAdjustStock = async (data: AdjustStockForm) => {
@@ -468,6 +672,7 @@ export default function Products() {
     // Inicializar vista previa con la imagen existente si hay
     setEditImagePreview(product.imagen_url || null);
     setEditSelectedImage(null);
+    setShouldDeleteImage(false);
     setIsEditDialogOpen(true);
   };
 
@@ -483,6 +688,30 @@ export default function Products() {
     setSelectedProduct(product);
     setIsDeleteDialogOpen(true);
   };
+
+  // Limpiar streams de cámara cuando el componente se desmonte o cambien los estados
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+      if (editCameraStream) {
+        editCameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream, editCameraStream]);
+
+  useEffect(() => {
+    if (!isCameraOpen && cameraStream) {
+      closeCamera();
+    }
+  }, [isCameraOpen]);
+
+  useEffect(() => {
+    if (!isEditCameraOpen && editCameraStream) {
+      closeEditCamera();
+    }
+  }, [isEditCameraOpen]);
 
   return (
     <DashboardLayout title="Productos">
@@ -970,20 +1199,33 @@ export default function Products() {
                     ) : (
                       <div className="border-2 border-dashed rounded-lg p-6 text-center">
                         <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-                        <Label 
-                          htmlFor="imagen" 
-                          className="cursor-pointer flex flex-col items-center gap-2"
-                        >
+                        <div className="flex flex-col items-center gap-3">
                           <span className="text-sm text-muted-foreground">
-                            Haz clic para seleccionar una imagen
+                            Selecciona una imagen desde tu dispositivo o toma una foto
                           </span>
-                          <Button type="button" variant="outline" size="sm" asChild>
-                            <span>
-                              <Upload className="h-4 w-4 mr-2" />
-                              Seleccionar Imagen
-                            </span>
-                          </Button>
-                        </Label>
+                          <div className="flex gap-2">
+                            <Label 
+                              htmlFor="imagen" 
+                              className="cursor-pointer"
+                            >
+                              <Button type="button" variant="outline" size="sm" asChild>
+                                <span>
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Galería
+                                </span>
+                              </Button>
+                            </Label>
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm"
+                              onClick={openCamera}
+                            >
+                              <Camera className="h-4 w-4 mr-2" />
+                              Cámara
+                            </Button>
+                          </div>
+                        </div>
                         <input
                           id="imagen"
                           type="file"
@@ -994,7 +1236,7 @@ export default function Products() {
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Formatos soportados: JPG, PNG, GIF. Tamaño máximo: 5MB
+                      Formatos soportados: JPG, PNG, GIF. Tamaño máximo: 2-3MB (se comprime automáticamente)
                     </p>
                   </div>
                 </div>
@@ -1034,6 +1276,10 @@ export default function Products() {
         <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
           setIsEditDialogOpen(open);
           if (!open) {
+            // Resetear estados cuando se cierra el diálogo sin guardar
+            setShouldDeleteImage(false);
+            setEditSelectedImage(null);
+            setEditImagePreview(selectedProduct?.imagen_url || null);
             setEditCategorySearchTerm('');
             setEditCategoryOpen(false);
           }
@@ -1207,53 +1453,86 @@ export default function Products() {
                         <img 
                           src={editImagePreview} 
                           alt="Vista previa" 
-                          className="w-full h-48 object-cover rounded-lg border"
+                          className={`w-full h-48 object-cover rounded-lg border ${shouldDeleteImage ? 'opacity-50' : ''}`}
                         />
                         <div className="absolute top-2 right-2 flex gap-2">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={handleRemoveEditImage}
-                            title="Cancelar cambio"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                          {selectedProduct?.imagen_url && (
+                          {!shouldDeleteImage && (
+                            <>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={handleRemoveEditImage}
+                                title="Cancelar cambio"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                              {selectedProduct?.imagen_url && (
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={handleDeleteEditImage}
+                                  title="Eliminar imagen"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                          {shouldDeleteImage && (
                             <Button
                               type="button"
-                              variant="destructive"
+                              variant="secondary"
                               size="sm"
-                              onClick={handleDeleteEditImage}
-                              title="Eliminar imagen"
+                              onClick={handleRemoveEditImage}
+                              title="Cancelar eliminación"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <X className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
                         {editSelectedImage && (
-                          <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                            Nueva imagen seleccionada
+                          <div className="absolute bottom-2 left-2 bg-blue-600/90 text-white text-xs px-2 py-1 rounded">
+                            Nueva imagen - Se guardará al hacer clic en "Guardar cambios"
+                          </div>
+                        )}
+                        {shouldDeleteImage && !editSelectedImage && (
+                          <div className="absolute bottom-2 left-2 bg-destructive/90 text-white text-xs px-2 py-1 rounded">
+                            La imagen se eliminará al guardar
                           </div>
                         )}
                       </div>
                     ) : (
                       <div className="border-2 border-dashed rounded-lg p-6 text-center">
                         <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-                        <Label 
-                          htmlFor="edit-imagen" 
-                          className="cursor-pointer flex flex-col items-center gap-2"
-                        >
+                        <div className="flex flex-col items-center gap-3">
                           <span className="text-sm text-muted-foreground">
-                            Haz clic para seleccionar una imagen
+                            Selecciona una imagen desde tu dispositivo o toma una foto
                           </span>
-                          <Button type="button" variant="outline" size="sm" asChild>
-                            <span>
-                              <Upload className="h-4 w-4 mr-2" />
-                              Seleccionar Imagen
-                            </span>
-                          </Button>
-                        </Label>
+                          <div className="flex gap-2">
+                            <Label 
+                              htmlFor="edit-imagen" 
+                              className="cursor-pointer"
+                            >
+                              <Button type="button" variant="outline" size="sm" asChild>
+                                <span>
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Galería
+                                </span>
+                              </Button>
+                            </Label>
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm"
+                              onClick={openEditCamera}
+                            >
+                              <Camera className="h-4 w-4 mr-2" />
+                              Cámara
+                            </Button>
+                          </div>
+                        </div>
                         <input
                           id="edit-imagen"
                           type="file"
@@ -1264,7 +1543,7 @@ export default function Products() {
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Formatos soportados: JPG, PNG, GIF. Tamaño máximo: 5MB
+                      Formatos soportados: JPG, PNG, GIF. Tamaño máximo: 2-3MB (se comprime automáticamente)
                     </p>
                   </div>
                 </div>
@@ -1382,6 +1661,92 @@ export default function Products() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Diálogo de cámara para crear producto */}
+        <Dialog open={isCameraOpen} onOpenChange={(open) => {
+          if (!open) {
+            closeCamera();
+          }
+        }}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Capturar Foto</DialogTitle>
+              <DialogDescription>
+                Posiciona el producto frente a la cámara y haz clic en "Capturar"
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {cameraStream && (
+                <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                  <video
+                    ref={(el) => {
+                      if (el && cameraStream) {
+                        el.srcObject = cameraStream;
+                        el.play();
+                        setVideoRef(el);
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeCamera}>
+                Cancelar
+              </Button>
+              <Button type="button" onClick={capturePhoto}>
+                <Camera className="h-4 w-4 mr-2" />
+                Capturar Foto
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Diálogo de cámara para editar producto */}
+        <Dialog open={isEditCameraOpen} onOpenChange={(open) => {
+          if (!open) {
+            closeEditCamera();
+          }
+        }}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Capturar Foto</DialogTitle>
+              <DialogDescription>
+                Posiciona el producto frente a la cámara y haz clic en "Capturar"
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {editCameraStream && (
+                <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                  <video
+                    ref={(el) => {
+                      if (el && editCameraStream) {
+                        el.srcObject = editCameraStream;
+                        el.play();
+                        setEditVideoRef(el);
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeEditCamera}>
+                Cancelar
+              </Button>
+              <Button type="button" onClick={captureEditPhoto}>
+                <Camera className="h-4 w-4 mr-2" />
+                Capturar Foto
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

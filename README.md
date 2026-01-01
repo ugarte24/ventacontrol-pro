@@ -315,6 +315,14 @@ ventacontrol-pro/
   - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
   - ✅ Corrección de mensajes duplicados en la edición de movimientos
 
+- ✅ **Mejoras en v2.16.0:**
+  - Sistema de cámara mejorado: Implementación de captura de fotos usando Dialog de shadcn/ui con mejor manejo de estado y limpieza automática de recursos
+  - Gestión de imágenes en edición de productos: Las imágenes nuevas y eliminaciones solo se aplican al hacer clic en "Guardar cambios", no inmediatamente
+  - Eliminación de imágenes del storage: Al eliminar una imagen del producto, también se elimina del storage de Supabase
+  - Compresión de imágenes: Todas las imágenes se comprimen automáticamente antes de subirse (máximo 2.5MB)
+  - Mejoras en manejo de errores: Mejor detección y mensajes de error para problemas con permisos de storage
+  - Documentación de políticas RLS: Agregado archivo `STORAGE_POLICIES.md` con instrucciones para configurar políticas de Supabase Storage
+
 - ✅ **Mejoras en v2.15.0:**
   - Internacionalización completa a español: Todos los textos de la interfaz traducidos al español
   - Prevención de traducción automática del navegador: Agregado `lang="es"`, meta tag `notranslate` y atributo `translate="no"` para evitar conflictos con React cuando el navegador intenta traducir la página

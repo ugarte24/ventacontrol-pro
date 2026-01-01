@@ -53,3 +53,84 @@ export function getLocalTimeISO(): string {
   const minutos = String(ahora.getMinutes()).padStart(2, '0');
   return `${horas}:${minutos}`;
 }
+
+/**
+ * Comprime una imagen para que pese máximo entre 2-3 MB
+ * @param file - Archivo de imagen a comprimir
+ * @param maxSizeMB - Tamaño máximo en MB (por defecto 2.5)
+ * @returns Promise con el archivo comprimido como Blob
+ */
+export async function compressImage(file: File, maxSizeMB: number = 2.5): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxWidth = 1920; // Ancho máximo
+        const maxHeight = 1920; // Alto máximo
+
+        // Redimensionar si es necesario manteniendo la proporción
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          } else {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('No se pudo obtener el contexto del canvas'));
+          return;
+        }
+
+        // Dibujar la imagen redimensionada
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Intentar comprimir con diferentes calidades
+        let quality = 0.9;
+        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+        const tryCompress = (q: number): void => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Error al comprimir la imagen'));
+                return;
+              }
+
+              // Si el tamaño es aceptable o la calidad es muy baja, usar este blob
+              if (blob.size <= maxSizeBytes || q <= 0.1) {
+                const compressedFile = new File(
+                  [blob],
+                  file.name,
+                  { type: 'image/jpeg', lastModified: Date.now() }
+                );
+                resolve(compressedFile);
+              } else {
+                // Reducir calidad y volver a intentar
+                tryCompress(q - 0.1);
+              }
+            },
+            'image/jpeg',
+            q
+          );
+        };
+
+        tryCompress(quality);
+      };
+      img.onerror = () => reject(new Error('Error al cargar la imagen'));
+    };
+    reader.onerror = () => reject(new Error('Error al leer el archivo'));
+  });
+}
