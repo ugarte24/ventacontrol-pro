@@ -85,7 +85,8 @@ import {
   Camera
 } from 'lucide-react';
 import { 
-  useProducts, 
+  useProductsPaginated, 
+  useProductsStats,
   useCreateProduct, 
   useUpdateProduct, 
   useAdjustStock,
@@ -135,7 +136,6 @@ type AdjustStockForm = z.infer<typeof adjustStockSchema>;
 
 export default function Products() {
   const { user } = useAuth();
-  const { data: products = [], isLoading } = useProducts();
   const { data: categories = [] } = useCategories();
   const createProductMutation = useCreateProduct();
   const updateProductMutation = useUpdateProduct();
@@ -148,7 +148,22 @@ export default function Products() {
   const [isStockDialogOpen, setIsStockDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 50; // Aumentado a 50 para mejor rendimiento con paginación del servidor
+
+  // Usar paginación del servidor
+  const { data: paginatedData, isLoading } = useProductsPaginated({
+    page: currentPage,
+    pageSize: itemsPerPage,
+    includeInactive: true,
+    searchTerm: searchTerm.trim() || undefined,
+  });
+
+  const products = paginatedData?.data || [];
+  const totalPages = paginatedData?.totalPages || 1;
+  const totalProducts = paginatedData?.total || 0;
+
+  // Estadísticas usando consulta separada eficiente
+  const { data: stats = { total: 0, activos: 0, stockBajo: 0 }, isLoading: isLoadingStats } = useProductsStats();
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [editCategoryOpen, setEditCategoryOpen] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
@@ -215,29 +230,13 @@ export default function Products() {
     },
   });
 
-  const filteredProducts = useMemo(() => 
-    products.filter(product =>
-      product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.codigo.toLowerCase().includes(searchTerm.toLowerCase())
-    ), [products, searchTerm]
-  );
-
-  // Paginación
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-
   // Resetear página cuando cambia la búsqueda
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const stats = {
-    total: products.length,
-    activos: products.filter(p => p.estado === 'activo').length,
-    stockBajo: products.filter(p => p.stock_actual <= p.stock_minimo && p.estado === 'activo').length,
-  };
+  // Los productos ya vienen filtrados y paginados del servidor
+  const paginatedProducts = products;
 
   const handleCreateProduct = async (data: CreateProductForm) => {
     try {
@@ -722,7 +721,7 @@ export default function Products() {
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm text-muted-foreground">Total Productos</p>
                   <p className="font-display text-xl sm:text-2xl font-bold text-foreground">
-                    {isLoading ? '...' : stats.total}
+                    {isLoadingStats ? '...' : stats.total}
                   </p>
                 </div>
               </div>
@@ -737,7 +736,7 @@ export default function Products() {
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm text-muted-foreground">Activos</p>
                   <p className="font-display text-xl sm:text-2xl font-bold text-foreground">
-                    {isLoading ? '...' : stats.activos}
+                    {isLoadingStats ? '...' : stats.activos}
                   </p>
                 </div>
               </div>
@@ -752,7 +751,7 @@ export default function Products() {
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm text-muted-foreground">Stock Bajo</p>
                   <p className="font-display text-xl sm:text-2xl font-bold text-foreground">
-                    {isLoading ? '...' : stats.stockBajo}
+                    {isLoadingStats ? '...' : stats.stockBajo}
                   </p>
                 </div>
               </div>
@@ -907,7 +906,7 @@ export default function Products() {
               {totalPages > 1 && (
                 <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">
-                    Mostrando {startIndex + 1} - {Math.min(endIndex, filteredProducts.length)} de {filteredProducts.length} productos
+                    Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalProducts)} de {totalProducts} productos
                   </div>
                   <Pagination>
                     <PaginationContent>

@@ -3,6 +3,19 @@ import { CashRegister } from '@/types';
 import { handleSupabaseError } from '@/lib/error-handler';
 import { getLocalDateTimeISO } from '@/lib/utils';
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface CashRegistersQueryParams {
+  page?: number;
+  pageSize?: number;
+}
+
 export const cashRegisterService = {
   // Obtener arqueo abierto del día actual
   async getOpenRegister(): Promise<CashRegister | null> {
@@ -37,6 +50,34 @@ export const cashRegisterService = {
 
     if (error) throw new Error(handleSupabaseError(error));
     return data as CashRegister[];
+  },
+
+  // Obtener todos los arqueos paginados
+  async getAllPaginated(params: CashRegistersQueryParams = {}): Promise<PaginatedResponse<CashRegister>> {
+    const { page = 1, pageSize = 20 } = params;
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error, count } = await supabase
+      .from('arqueos_caja')
+      .select('*', { count: 'exact' })
+      .order('fecha', { ascending: false })
+      .order('hora_apertura', { ascending: false })
+      .range(from, to);
+
+    if (error) throw new Error(handleSupabaseError(error));
+
+    const total = count || 0;
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: (data || []) as CashRegister[],
+      total,
+      page,
+      pageSize,
+      totalPages,
+    };
   },
 
   // Obtener arqueo por ID

@@ -19,6 +19,23 @@ export interface CreateSaleData {
   }>;
 }
 
+export interface SalesQueryParams {
+  page?: number;
+  pageSize?: number;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  id_vendedor?: string;
+  searchTerm?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export const salesService = {
   async getAll(filters?: {
     fechaDesde?: string;
@@ -65,6 +82,78 @@ export const salesService = {
     });
     
     return salesWithBalance;
+  },
+
+  async getAllPaginated(params: SalesQueryParams = {}): Promise<PaginatedResponse<Sale>> {
+    const {
+      page = 1,
+      pageSize = 20,
+      fechaDesde,
+      fechaHasta,
+      id_vendedor,
+      searchTerm,
+    } = params;
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from('ventas')
+      .select(`
+        *,
+        detalle_venta (
+          id,
+          id_producto,
+          cantidad,
+          precio_unitario,
+          subtotal,
+          productos (
+            nombre
+          )
+        )
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (fechaDesde) {
+      query = query.gte('fecha', fechaDesde);
+    }
+    if (fechaHasta) {
+      query = query.lte('fecha', fechaHasta);
+    }
+    if (id_vendedor) {
+      query = query.eq('id_vendedor', id_vendedor);
+    }
+    
+    // Búsqueda por texto: hora, método de pago, estado
+    // Nota: La búsqueda por nombre de producto requiere filtrar después de obtener los datos
+    // debido a las relaciones anidadas en Supabase
+    if (searchTerm && searchTerm.trim()) {
+      query = query.or(`hora.ilike.%${searchTerm}%,metodo_pago.ilike.%${searchTerm}%,estado.ilike.%${searchTerm}%`);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) throw new Error(handleSupabaseError(error));
+    
+    // Calcular saldo_pendiente para ventas a crédito
+    const salesWithBalance = (data || []).map((sale: any) => {
+      if (sale.metodo_pago === 'credito' && sale.monto_pagado !== null) {
+        sale.saldo_pendiente = parseFloat(sale.total) - parseFloat(sale.monto_pagado || 0);
+      }
+      return sale;
+    });
+    
+    const total = count || 0;
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: salesWithBalance as Sale[],
+      total,
+      page,
+      pageSize,
+      totalPages,
+    };
   },
 
   async getCreditSales(filters?: {

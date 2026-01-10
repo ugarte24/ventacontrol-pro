@@ -1,11 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { clientsService } from '@/services/clients.service';
+import { clientsService, ClientsQueryParams } from '@/services/clients.service';
 import { Client } from '@/types';
 
 export function useClients() {
   return useQuery({
     queryKey: ['clients'],
     queryFn: () => clientsService.getAll(),
+  });
+}
+
+export function useClientsPaginated(params: ClientsQueryParams = {}) {
+  return useQuery({
+    queryKey: ['clients', 'paginated', params],
+    queryFn: () => clientsService.getAllPaginated(params),
+    // placeholderData: (previousData) => previousData, // Mantener datos anteriores mientras carga la nueva página
   });
 }
 
@@ -45,6 +53,7 @@ export function useUpdateClient() {
       clientsService.update(id, updates),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['clients', 'paginated'] });
       queryClient.invalidateQueries({ queryKey: ['client', variables.id] });
     },
   });
@@ -68,6 +77,7 @@ export function useToggleClientStatus() {
     mutationFn: (id: string) => clientsService.toggleStatus(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['clients', 'paginated'] });
     },
   });
 }

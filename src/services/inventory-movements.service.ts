@@ -2,6 +2,24 @@ import { supabase } from '@/lib/supabase';
 import { handleSupabaseError } from '@/lib/error-handler';
 import { getLocalDateTimeISO } from '@/lib/utils';
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface InventoryMovementsQueryParams {
+  page?: number;
+  pageSize?: number;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  id_producto?: string;
+  tipo_movimiento?: 'entrada' | 'salida';
+  motivo?: 'venta' | 'ajuste' | 'compra' | 'devolución';
+}
+
 export interface InventoryMovement {
   id: string;
   id_producto: string;
@@ -42,7 +60,18 @@ export const inventoryMovementsService = {
   }): Promise<InventoryMovement[]> {
     let query = supabase
       .from('movimientos_inventario')
-      .select('*')
+      .select(`
+        *,
+        productos (
+          id,
+          nombre,
+          codigo
+        ),
+        usuarios (
+          id,
+          nombre
+        )
+      `)
       .order('fecha', { ascending: false })
       .order('created_at', { ascending: false });
 
@@ -71,31 +100,83 @@ export const inventoryMovementsService = {
     
     if (!data || data.length === 0) return [];
 
-    // Obtener productos y usuarios relacionados
-    const productIds = [...new Set(data.map((item: any) => item.id_producto))];
-    const userIds = [...new Set(data.map((item: any) => item.id_usuario).filter(Boolean))];
+    // Transformar los datos para que productos y usuarios estén en el formato esperado
+    return data.map((item: any) => ({
+      ...item,
+      producto: item.productos ? {
+        nombre: item.productos.nombre,
+        codigo: item.productos.codigo,
+      } : undefined,
+      usuario: item.usuarios ? {
+        nombre: item.usuarios.nombre,
+      } : undefined,
+    })) as InventoryMovement[];
+  },
 
-    const productsMap = new Map();
-    const usersMap = new Map();
+  async getAllPaginated(params: InventoryMovementsQueryParams = {}): Promise<PaginatedResponse<InventoryMovement>> {
+    const {
+      page = 1,
+      pageSize = 50,
+      fechaDesde,
+      fechaHasta,
+      id_producto,
+      tipo_movimiento,
+      motivo,
+    } = params;
 
-    if (productIds.length > 0) {
-      try {
-        const { data: products, error: productsError } = await supabase
-          .from('productos')
-          .select('id, nombre, codigo')
-          .in('id', productIds);
-        
-        if (productsError) {
-          console.error('Error al obtener productos:', productsError);
-        } else if (products) {
-          products.forEach((p: any) => {
-            productsMap.set(p.id, { nombre: p.nombre, codigo: p.codigo });
-          });
-        }
-      } catch (error) {
-        console.error('Error al obtener productos:', error);
-      }
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from('movimientos_inventario')
+      .select(`
+        *,
+        productos (
+          id,
+          nombre,
+          codigo
+        )
+      `, { count: 'exact' })
+      .order('fecha', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (fechaDesde) {
+      query = query.gte('fecha', fechaDesde);
     }
+    if (fechaHasta) {
+      query = query.lte('fecha', fechaHasta);
+    }
+    if (id_producto) {
+      query = query.eq('id_producto', id_producto);
+    }
+    if (tipo_movimiento) {
+      query = query.eq('tipo_movimiento', tipo_movimiento);
+    }
+    if (motivo) {
+      query = query.eq('motivo', motivo);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Error al obtener movimientos de inventario:', error);
+      throw new Error(handleSupabaseError(error));
+    }
+
+    if (!data || data.length === 0) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      };
+    }
+
+    // Obtener usuarios relacionados
+    const userIds = [...new Set(data.map((item: any) => item.id_usuario).filter(Boolean))];
+    const usersMap = new Map();
 
     if (userIds.length > 0) {
       try {
@@ -117,11 +198,23 @@ export const inventoryMovementsService = {
     }
 
     // Transformar los datos agregando las relaciones
-    return data.map((item: any) => ({
+    const movements = data.map((item: any) => ({
       ...item,
-      producto: productsMap.get(item.id_producto),
+      producto: item.productos ? { nombre: item.productos.nombre, codigo: item.productos.codigo } : undefined,
       usuario: item.id_usuario ? usersMap.get(item.id_usuario) : undefined,
+      productos: undefined, // Remover el objeto productos del resultado
     })) as InventoryMovement[];
+
+    const total = count || 0;
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: movements,
+      total,
+      page,
+      pageSize,
+      totalPages,
+    };
   },
 
   async getById(id: string): Promise<InventoryMovement | null> {

@@ -3,6 +3,21 @@ import { Client } from '@/types';
 import { handleSupabaseError } from '@/lib/error-handler';
 import { getLocalDateTimeISO } from '@/lib/utils';
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface ClientsQueryParams {
+  page?: number;
+  pageSize?: number;
+  includeInactive?: boolean;
+  searchTerm?: string;
+}
+
 export const clientsService = {
   async getAll(includeInactive = true): Promise<Client[]> {
     let query = supabase
@@ -17,6 +32,47 @@ export const clientsService = {
 
     if (error) throw new Error(handleSupabaseError(error));
     return data as Client[];
+  },
+
+  async getAllPaginated(params: ClientsQueryParams = {}): Promise<PaginatedResponse<Client>> {
+    const {
+      page = 1,
+      pageSize = 50,
+      includeInactive = true,
+      searchTerm = '',
+    } = params;
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from('clientes')
+      .select('*', { count: 'exact' })
+      .order('nombre');
+    
+    if (!includeInactive) {
+      query = query.eq('estado', 'activo');
+    }
+
+    // Si hay término de búsqueda, aplicarlo
+    if (searchTerm.trim()) {
+      query = query.or(`nombre.ilike.%${searchTerm}%,ci_nit.ilike.%${searchTerm}%,telefono.ilike.%${searchTerm}%`);
+    }
+
+    const { data, error, count } = await query.range(from, to);
+
+    if (error) throw new Error(handleSupabaseError(error));
+
+    const total = count || 0;
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: (data || []) as Client[],
+      total,
+      page,
+      pageSize,
+      totalPages,
+    };
   },
 
   async getById(id: string): Promise<Client | null> {

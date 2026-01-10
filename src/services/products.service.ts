@@ -3,6 +3,21 @@ import { Product } from '@/types';
 import { handleSupabaseError } from '@/lib/error-handler';
 import { getLocalDateTimeISO } from '@/lib/utils';
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface ProductsQueryParams {
+  page?: number;
+  pageSize?: number;
+  includeInactive?: boolean;
+  searchTerm?: string;
+}
+
 export const productsService = {
   async getAll(includeInactive = true): Promise<Product[]> {
     let query = supabase
@@ -18,6 +33,48 @@ export const productsService = {
 
     if (error) throw new Error(handleSupabaseError(error));
     return data as Product[];
+  },
+
+  async getAllPaginated(params: ProductsQueryParams = {}): Promise<PaginatedResponse<Product>> {
+    const {
+      page = 1,
+      pageSize = 50,
+      includeInactive = true,
+      searchTerm = '',
+    } = params;
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from('productos')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (!includeInactive) {
+      query = query.eq('estado', 'activo');
+    }
+
+    // Si hay término de búsqueda, aplicarlo
+    if (searchTerm.trim()) {
+      query = query.or(`nombre.ilike.%${searchTerm}%,codigo.ilike.%${searchTerm}%`);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) throw new Error(handleSupabaseError(error));
+
+    const total = count || 0;
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: (data || []) as Product[],
+      total,
+      page,
+      pageSize,
+      totalPages,
+    };
   },
 
   async getById(id: string): Promise<Product | null> {
@@ -204,6 +261,32 @@ export const productsService = {
 
     const newStatus = current.estado === 'activo' ? 'inactivo' : 'activo';
     return this.update(id, { estado: newStatus });
+  },
+
+  async getStats(): Promise<{ total: number; activos: number; stockBajo: number }> {
+    // Obtener conteos totales de manera eficiente
+    const [totalResult, activosResult, activosData] = await Promise.all([
+      supabase
+        .from('productos')
+        .select('id', { count: 'exact', head: true }),
+      supabase
+        .from('productos')
+        .select('id', { count: 'exact', head: true })
+        .eq('estado', 'activo'),
+      supabase
+        .from('productos')
+        .select('stock_actual, stock_minimo')
+        .eq('estado', 'activo'),
+    ]);
+
+    // Calcular stock bajo en memoria (solo para productos activos, que suele ser un subconjunto más pequeño)
+    const stockBajo = activosData.data?.filter(p => p.stock_actual <= p.stock_minimo).length || 0;
+
+    return {
+      total: totalResult.count || 0,
+      activos: activosResult.count || 0,
+      stockBajo,
+    };
   },
 };
 

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { cashRegisterService } from '@/services/cash-register.service';
+import { cashRegisterService, CashRegistersQueryParams } from '@/services/cash-register.service';
 import { CashRegister } from '@/types';
 
 export function useOpenRegister() {
@@ -14,6 +14,13 @@ export function useCashRegisters() {
   return useQuery({
     queryKey: ['cashRegisters'],
     queryFn: () => cashRegisterService.getAll(),
+  });
+}
+
+export function useCashRegistersPaginated(params: CashRegistersQueryParams = {}) {
+  return useQuery({
+    queryKey: ['cashRegisters', 'paginated', params],
+    queryFn: () => cashRegisterService.getAllPaginated(params),
   });
 }
 
@@ -73,6 +80,7 @@ export function useOpenCashRegister() {
       cashRegisterService.openRegister(montoInicial, idAdministrador),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cashRegister'] });
+      queryClient.invalidateQueries({ queryKey: ['cashRegisters'] });
       queryClient.invalidateQueries({ queryKey: ['todayCashSales'] });
       queryClient.invalidateQueries({ queryKey: ['todayTotalSales'] });
     },

@@ -2,7 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   inventoryMovementsService, 
   InventoryMovement, 
-  CreateInventoryMovementData 
+  CreateInventoryMovementData,
+  InventoryMovementsQueryParams
 } from '@/services/inventory-movements.service';
 
 export function useInventoryMovements(filters?: {
@@ -15,6 +16,13 @@ export function useInventoryMovements(filters?: {
   return useQuery({
     queryKey: ['inventoryMovements', filters],
     queryFn: () => inventoryMovementsService.getAll(filters),
+  });
+}
+
+export function useInventoryMovementsPaginated(params: InventoryMovementsQueryParams = {}) {
+  return useQuery({
+    queryKey: ['inventoryMovements', 'paginated', params],
+    queryFn: () => inventoryMovementsService.getAllPaginated(params),
   });
 }
 

@@ -83,10 +83,10 @@ import {
   Check,
   ChevronsUpDown
 } from 'lucide-react';
-import { useInventoryMovements, useCreateInventoryMovement, useCancelInventoryMovement } from '@/hooks/useInventoryMovements';
+import { useInventoryMovements, useInventoryMovementsPaginated, useCreateInventoryMovement, useCancelInventoryMovement } from '@/hooks/useInventoryMovements';
 import { useProducts } from '@/hooks/useProducts';
 import { useAuth } from '@/contexts';
-import { InventoryMovement, CreateInventoryMovementData } from '@/services/inventory-movements.service';
+import { inventoryMovementsService, InventoryMovement, CreateInventoryMovementData } from '@/services/inventory-movements.service';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -164,62 +164,55 @@ export default function InventoryMovements() {
   // Obtener el producto seleccionado en creación
   const selectedProduct = products?.find(p => p.id === createForm.watch('id_producto'));
 
-  // Construir filtros
-  const filters = useMemo(() => {
-    const f: {
+  // Construir parámetros de paginación
+  const paginationParams = useMemo(() => {
+    const params: {
+      page: number;
+      pageSize: number;
       fechaDesde?: string;
       fechaHasta?: string;
       id_producto?: string;
       tipo_movimiento?: 'entrada' | 'salida';
       motivo?: 'venta' | 'ajuste' | 'compra' | 'devolución';
-    } = {};
+    } = {
+      page: currentPage,
+      pageSize: itemsPerPage,
+    };
     
-    if (fechaDesde) f.fechaDesde = fechaDesde;
-    if (fechaHasta) f.fechaHasta = fechaHasta;
-    if (idProducto) f.id_producto = idProducto;
-    if (tipoMovimiento) f.tipo_movimiento = tipoMovimiento;
-    if (motivo) f.motivo = motivo;
+    if (fechaDesde) params.fechaDesde = fechaDesde;
+    if (fechaHasta) params.fechaHasta = fechaHasta;
+    if (idProducto) params.id_producto = idProducto;
+    if (tipoMovimiento) params.tipo_movimiento = tipoMovimiento;
+    if (motivo) params.motivo = motivo;
     
-    return f;
+    return params;
+  }, [currentPage, itemsPerPage, fechaDesde, fechaHasta, idProducto, tipoMovimiento, motivo]);
+
+  const { data: paginatedData, isLoading, error } = useInventoryMovementsPaginated(paginationParams);
+
+  const movements = paginatedData?.data || [];
+  const totalPages = paginatedData?.totalPages || 1;
+  const totalMovements = paginatedData?.total || 0;
+
+  // Resetear página cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
   }, [fechaDesde, fechaHasta, idProducto, tipoMovimiento, motivo]);
 
-  const { data: movements, isLoading, error } = useInventoryMovements(filters);
-
-  // Filtrar movimientos por término de búsqueda
-  const filteredMovements = useMemo(() => {
-    if (!movements) return [];
-    
-    let filtered = movements;
-    
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (movement) =>
-          movement.id.toLowerCase().includes(term) ||
-          movement.producto?.nombre.toLowerCase().includes(term) ||
-          movement.producto?.codigo.toLowerCase().includes(term) ||
-          movement.usuario?.nombre.toLowerCase().includes(term) ||
-          movement.observacion?.toLowerCase().includes(term)
-      );
-    }
-    
-    return filtered;
-  }, [movements, searchTerm]);
-
-  // Calcular estadísticas
+  // Calcular estadísticas (nota: esto ahora solo cuenta la página actual)
   const stats = useMemo(() => {
-    if (!filteredMovements) return { entradas: 0, salidas: 0, total: 0 };
+    if (!movements) return { entradas: 0, salidas: 0, total: 0 };
     
-    const entradas = filteredMovements
+    const entradas = movements
       .filter(m => m.tipo_movimiento === 'entrada')
       .reduce((sum, m) => sum + m.cantidad, 0);
-    const salidas = filteredMovements
+    const salidas = movements
       .filter(m => m.tipo_movimiento === 'salida')
       .reduce((sum, m) => sum + m.cantidad, 0);
-    const total = filteredMovements.length;
+    const total = totalMovements; // Usar el total del servidor
     
     return { entradas, salidas, total };
-  }, [filteredMovements]);
+  }, [movements, totalMovements]);
 
   const getTipoMovimientoBadge = (tipo: 'entrada' | 'salida') => {
     if (tipo === 'entrada') {
@@ -275,7 +268,6 @@ export default function InventoryMovements() {
     setIdProducto('');
     setTipoMovimiento('');
     setMotivo('');
-    setSearchTerm('');
   };
 
   const hasActiveFilters = fechaDesde || fechaHasta || idProducto || tipoMovimiento || motivo || searchTerm;
@@ -333,41 +325,42 @@ export default function InventoryMovements() {
     }
   };
 
-  // Paginación
-  const totalPages = Math.ceil(filteredMovements.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedMovements = filteredMovements.slice(startIndex, endIndex);
 
-  // Resetear página cuando cambian los filtros
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [fechaDesde, fechaHasta, idProducto, tipoMovimiento, motivo, searchTerm]);
-
-  // Exportar a PDF
+  // Exportar a PDF (usa getAll para obtener todos los datos filtrados)
   const handleExportPDF = async () => {
-    if (!filteredMovements || filteredMovements.length === 0) {
-      toast.error('No hay datos para exportar');
-      return;
-    }
-
     try {
+      const allMovements = await inventoryMovementsService.getAll({
+        fechaDesde: fechaDesde || undefined,
+        fechaHasta: fechaHasta || undefined,
+        id_producto: idProducto || undefined,
+        tipo_movimiento: tipoMovimiento || undefined,
+        motivo: motivo || undefined,
+      });
+
+      if (!allMovements || allMovements.length === 0) {
+        toast.error('No hay datos para exportar');
+        return;
+      }
+
       await exportService.exportToPDF({
         title: 'INVENTARIO',
         columns: [
           { header: 'Fecha', dataKey: 'fecha', width: 25 },
-          { header: 'Producto', dataKey: 'producto.nombre', width: 50 },
-          { header: 'Código', dataKey: 'producto.codigo', width: 30 },
+          { header: 'Producto', dataKey: 'productoNombre', width: 50 },
+          { header: 'Código', dataKey: 'productoCodigo', width: 30 },
           { header: 'Tipo', dataKey: 'tipo_movimiento', width: 25 },
           { header: 'Cantidad', dataKey: 'cantidad', width: 25 },
           { header: 'Motivo', dataKey: 'motivo', width: 30 },
-          { header: 'Usuario', dataKey: 'usuario.nombre', width: 40 },
+          { header: 'Usuario', dataKey: 'usuarioNombre', width: 40 },
           { header: 'Observación', dataKey: 'observacion', width: 50 },
         ],
-        data: filteredMovements.map(movement => ({
+        data: allMovements.map(movement => ({
           ...movement,
           tipo_movimiento: movement.tipo_movimiento === 'entrada' ? 'Entrada' : 'Salida',
           motivo: movement.motivo.charAt(0).toUpperCase() + movement.motivo.slice(1),
+          productoNombre: movement.producto?.nombre || 'N/A',
+          productoCodigo: movement.producto?.codigo || 'N/A',
+          usuarioNombre: movement.usuario?.nombre || 'N/A',
         })),
         dateRange: {
           desde: fechaDesde || undefined,
@@ -383,30 +376,41 @@ export default function InventoryMovements() {
     }
   };
 
-  // Exportar a Excel
+  // Exportar a Excel (usa getAll para obtener todos los datos filtrados)
   const handleExportExcel = async () => {
-    if (!filteredMovements || filteredMovements.length === 0) {
-      toast.error('No hay datos para exportar');
-      return;
-    }
-
     try {
+      const allMovements = await inventoryMovementsService.getAll({
+        fechaDesde: fechaDesde || undefined,
+        fechaHasta: fechaHasta || undefined,
+        id_producto: idProducto || undefined,
+        tipo_movimiento: tipoMovimiento || undefined,
+        motivo: motivo || undefined,
+      });
+
+      if (!allMovements || allMovements.length === 0) {
+        toast.error('No hay datos para exportar');
+        return;
+      }
+
       await exportService.exportToExcel({
         title: 'Movimientos de Inventario',
         columns: [
           { header: 'Fecha', dataKey: 'fecha', width: 25 },
-          { header: 'Producto', dataKey: 'producto.nombre', width: 50 },
-          { header: 'Código', dataKey: 'producto.codigo', width: 30 },
+          { header: 'Producto', dataKey: 'productoNombre', width: 50 },
+          { header: 'Código', dataKey: 'productoCodigo', width: 30 },
           { header: 'Tipo', dataKey: 'tipo_movimiento', width: 25 },
           { header: 'Cantidad', dataKey: 'cantidad', width: 25 },
           { header: 'Motivo', dataKey: 'motivo', width: 30 },
-          { header: 'Usuario', dataKey: 'usuario.nombre', width: 40 },
+          { header: 'Usuario', dataKey: 'usuarioNombre', width: 40 },
           { header: 'Observación', dataKey: 'observacion', width: 50 },
         ],
-        data: filteredMovements.map(movement => ({
+        data: allMovements.map(movement => ({
           ...movement,
           tipo_movimiento: movement.tipo_movimiento === 'entrada' ? 'Entrada' : 'Salida',
           motivo: movement.motivo.charAt(0).toUpperCase() + movement.motivo.slice(1),
+          productoNombre: movement.producto?.nombre || 'N/A',
+          productoCodigo: movement.producto?.codigo || 'N/A',
+          usuarioNombre: movement.usuario?.nombre || 'N/A',
         })),
         dateRange: {
           desde: fechaDesde || undefined,
@@ -643,7 +647,7 @@ export default function InventoryMovements() {
                   <Skeleton key={i} className="h-16 w-full" />
                 ))}
               </div>
-            ) : paginatedMovements.length === 0 ? (
+            ) : movements.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 No se encontraron movimientos
               </div>
@@ -665,7 +669,7 @@ export default function InventoryMovements() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {paginatedMovements.map((movement) => (
+                        {movements.map((movement) => (
                           <TableRow key={movement.id}>
                             <TableCell className="font-medium">
                               {formatDate(movement.fecha)}
@@ -727,7 +731,7 @@ export default function InventoryMovements() {
                 {totalPages > 1 && (
                   <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="text-sm text-muted-foreground">
-                      Mostrando {startIndex + 1} - {Math.min(endIndex, filteredMovements.length)} de {filteredMovements.length} movimientos
+                      Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalMovements)} de {totalMovements} movimientos
                     </div>
                     <Pagination>
                       <PaginationContent>

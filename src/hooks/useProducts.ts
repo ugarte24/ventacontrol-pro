@@ -1,11 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { productsService } from '@/services/products.service';
+import { productsService, ProductsQueryParams } from '@/services/products.service';
 import { Product } from '@/types';
 
 export function useProducts() {
   return useQuery({
     queryKey: ['products'],
     queryFn: () => productsService.getAll(),
+  });
+}
+
+export function useProductsPaginated(params: ProductsQueryParams = {}) {
+  return useQuery({
+    queryKey: ['products', 'paginated', params],
+    queryFn: () => productsService.getAllPaginated(params),
+    // placeholderData: (previousData) => previousData, // Mantener datos anteriores mientras carga la nueva página
   });
 }
 
@@ -52,7 +60,9 @@ export function useUpdateProduct() {
       productsService.update(id, updates),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products', 'paginated'] });
       queryClient.invalidateQueries({ queryKey: ['product', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
     },
   });
 }
@@ -76,8 +86,10 @@ export function useAdjustStock() {
       productsService.adjustStock(id, nuevoStock, idUsuario),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products', 'paginated'] });
       queryClient.invalidateQueries({ queryKey: ['product', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['inventoryMovements'] }); // Actualizar movimientos
+      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
     },
   });
 }
@@ -89,7 +101,15 @@ export function useToggleProductStatus() {
     mutationFn: (id: string) => productsService.toggleStatus(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products', 'paginated'] });
+      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
     },
   });
 }
 
+export function useProductsStats() {
+  return useQuery({
+    queryKey: ['products', 'stats'],
+    queryFn: () => productsService.getStats(),
+  });
+}

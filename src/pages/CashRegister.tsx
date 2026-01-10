@@ -47,6 +47,7 @@ import {
 import { 
   useOpenRegister,
   useCashRegisters,
+  useCashRegistersPaginated,
   useTodayCashSales,
   useTodayTotalSales,
   useOpenCashRegister,
@@ -92,7 +93,17 @@ type EditRegisterForm = z.infer<typeof editRegisterSchema>;
 export default function CashRegister() {
   const { user } = useAuth();
   const { data: openRegister, isLoading: loadingOpen } = useOpenRegister();
-  const { data: registers = [], isLoading: loadingRegisters } = useCashRegisters();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+  
+  const { data: paginatedData, isLoading: loadingRegisters } = useCashRegistersPaginated({
+    page: currentPage,
+    pageSize: itemsPerPage,
+  });
+  
+  const registers = paginatedData?.data || [];
+  const totalPages = paginatedData?.totalPages || 1;
+  const totalRegisters = paginatedData?.total || 0;
   const { data: todayCashSales = 0 } = useTodayCashSales();
   const { data: todayTotalSales = 0 } = useTodayTotalSales();
   const { data: salesByMethod = { efectivo: 0, qr: 0, transferencia: 0, credito: 0 }, isLoading: loadingByMethod } = useTodaySalesByMethod();
@@ -109,8 +120,6 @@ export default function CashRegister() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingRegister, setEditingRegister] = useState<typeof registers[0] | null>(null);
   const [closingRegisterFromHistory, setClosingRegisterFromHistory] = useState<typeof registers[0] | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
 
   const openForm = useForm<OpenRegisterForm>({
     resolver: zodResolver(openRegisterSchema),
@@ -205,18 +214,6 @@ export default function CashRegister() {
     ? openRegister.diferencia
     : 0;
 
-  // Paginación para historial de arqueos
-  const totalPages = Math.ceil(registers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedRegisters = registers.slice(startIndex, endIndex);
-
-  // Resetear página cuando cambien los registros
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [registers.length, currentPage, totalPages]);
 
   const handleEditRegister = (register: typeof registers[0]) => {
     setEditingRegister(register);
@@ -444,9 +441,13 @@ export default function CashRegister() {
                 No hay arqueos registrados
               </div>
             ) : (
-              <div className="rounded-lg border overflow-x-auto">
-                <div className="min-w-[500px]">
-                  <Table>
+              <>
+                <div className="text-sm text-muted-foreground mb-4">
+                  Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalRegisters)} de {totalRegisters} arqueos
+                </div>
+                <div className="rounded-lg border overflow-x-auto">
+                  <div className="min-w-[500px]">
+                    <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Fecha</TableHead>
@@ -461,7 +462,7 @@ export default function CashRegister() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedRegisters.map((register) => {
+                    {registers.map((register) => {
                       // Si el arqueo está abierto y es del día actual, calcular dinámicamente el total
                       const now = new Date();
                       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -536,11 +537,12 @@ export default function CashRegister() {
                       );
                     })}
                   </TableBody>
-                </Table>
+                    </Table>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
-            {registers.length > itemsPerPage && (
+            {totalPages > 1 && (
               <div className="mt-4 flex justify-center">
                 <Pagination>
                   <PaginationContent>

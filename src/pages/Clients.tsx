@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { 
   useClients, 
+  useClientsPaginated,
   useCreateClient, 
   useUpdateClient, 
   useToggleClientStatus
@@ -78,7 +79,6 @@ type CreateClientForm = z.infer<typeof createClientSchema>;
 type UpdateClientForm = z.infer<typeof updateClientSchema>;
 
 export default function Clients() {
-  const { data: clients = [], isLoading } = useClients();
   const createClientMutation = useCreateClient();
   const updateClientMutation = useUpdateClient();
   const toggleStatusMutation = useToggleClientStatus();
@@ -88,7 +88,7 @@ export default function Clients() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 50; // Aumentado a 50 para mejor rendimiento con paginación del servidor
 
   const createForm = useForm<CreateClientForm>({
     resolver: zodResolver(createClientSchema),
@@ -104,27 +104,28 @@ export default function Clients() {
     resolver: zodResolver(updateClientSchema),
   });
 
-  const filteredClients = useMemo(() => 
-    clients.filter(client =>
-      client.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.ci_nit && client.ci_nit.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (client.telefono && client.telefono.toLowerCase().includes(searchTerm.toLowerCase()))
-    ), [clients, searchTerm]
-  );
+  // Usar paginación del servidor
+  const { data: paginatedData, isLoading } = useClientsPaginated({
+    page: currentPage,
+    pageSize: itemsPerPage,
+    includeInactive: true,
+    searchTerm: searchTerm.trim() || undefined,
+  });
 
-  // Paginación
-  const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedClients = filteredClients.slice(startIndex, endIndex);
+  const clients = paginatedData?.data || [];
+  const totalPages = paginatedData?.totalPages || 1;
+  const totalClients = paginatedData?.total || 0;
 
   // Resetear página cuando cambia la búsqueda
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
+  // Los clientes ya vienen filtrados y paginados del servidor
+  const paginatedClients = clients;
+
   const stats = {
-    total: clients.length,
+    total: totalClients,
   };
 
   const handleCreateClient = async (data: CreateClientForm) => {
@@ -330,7 +331,7 @@ export default function Clients() {
               {totalPages > 1 && (
                 <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">
-                    Mostrando {startIndex + 1} - {Math.min(endIndex, filteredClients.length)} de {filteredClients.length} clientes
+                    Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalClients)} de {totalClients} clientes
                   </div>
                   <Pagination>
                     <PaginationContent>

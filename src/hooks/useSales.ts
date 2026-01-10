@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { salesService, CreateSaleData } from '@/services/sales.service';
+import { salesService, CreateSaleData, SalesQueryParams } from '@/services/sales.service';
 import { Sale } from '@/types';
 
 export function useSales(filters?: {
@@ -10,6 +10,14 @@ export function useSales(filters?: {
   return useQuery({
     queryKey: ['sales', filters],
     queryFn: () => salesService.getAll(filters),
+  });
+}
+
+export function useSalesPaginated(params: SalesQueryParams = {}) {
+  return useQuery({
+    queryKey: ['sales', 'paginated', params],
+    queryFn: () => salesService.getAllPaginated(params),
+    // placeholderData: (previousData) => previousData, // Mantener datos anteriores mientras carga la nueva página
   });
 }
 

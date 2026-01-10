@@ -69,7 +69,7 @@ import {
   FileSpreadsheet,
   Printer
 } from 'lucide-react';
-import { useSales, useSaleDetails, useCancelSale } from '@/hooks/useSales';
+import { useSalesPaginated, useSaleDetails, useCancelSale } from '@/hooks/useSales';
 import { salesService } from '@/services/sales.service';
 import { useUsers } from '@/hooks/useUsers';
 import { useProducts } from '@/hooks/useProducts';
@@ -106,24 +106,42 @@ export default function SalesHistory() {
   // Obtener productos para mostrar en detalles
   const { data: products } = useProducts();
 
-  // Construir filtros
-  const filters = useMemo(() => {
-    const f: { fechaDesde?: string; fechaHasta?: string; id_vendedor?: string } = {};
+  // Construir filtros para paginación del servidor
+  const paginationParams = useMemo(() => {
+    const params: {
+      page?: number;
+      pageSize?: number;
+      fechaDesde?: string;
+      fechaHasta?: string;
+      id_vendedor?: string;
+      searchTerm?: string;
+    } = {
+      page: currentPage,
+      pageSize: itemsPerPage,
+    };
     
-    if (fechaDesde) f.fechaDesde = fechaDesde;
-    if (fechaHasta) f.fechaHasta = fechaHasta;
+    if (fechaDesde) params.fechaDesde = fechaDesde;
+    if (fechaHasta) params.fechaHasta = fechaHasta;
     
     // Si es vendedor, solo mostrar sus ventas
     if (user?.rol === 'vendedor') {
-      f.id_vendedor = user.id;
+      params.id_vendedor = user.id;
     } else if (idVendedor) {
-      f.id_vendedor = idVendedor;
+      params.id_vendedor = idVendedor;
     }
     
-    return f;
-  }, [fechaDesde, fechaHasta, idVendedor, user]);
+    // Búsqueda por texto
+    if (searchTerm && searchTerm.trim()) {
+      params.searchTerm = searchTerm.trim();
+    }
+    
+    return params;
+  }, [currentPage, itemsPerPage, fechaDesde, fechaHasta, idVendedor, searchTerm, user]);
 
-  const { data: sales, isLoading, error } = useSales(filters);
+  const { data: paginatedData, isLoading, error } = useSalesPaginated(paginationParams);
+  const sales = paginatedData?.data || [];
+  const totalPages = paginatedData?.totalPages || 1;
+  const totalSales = paginatedData?.total || 0;
   const { data: saleDetails, isLoading: loadingDetails } = useSaleDetails(
     selectedSale?.id || ''
   );
@@ -226,53 +244,27 @@ export default function SalesHistory() {
     }
   };
 
-  // Filtrar ventas por término de búsqueda
-  const filteredSales = useMemo(() => {
-    if (!sales) return [];
-    
-    let filtered = sales;
-    
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((sale: any) => {
-        const detalles = sale.detalle_venta || [];
-        const primerDetalle = detalles[0];
-        const producto = primerDetalle?.productos;
-        const nombreProducto = producto?.nombre || '';
-        
-        return (
-          sale.hora.toLowerCase().includes(term) ||
-          sale.total.toString().includes(term) ||
-          nombreProducto.toLowerCase().includes(term)
-        );
-      });
-    }
-    
-    return filtered;
-  }, [sales, searchTerm]);
-
-  // Paginación
-  const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedSales = filteredSales.slice(startIndex, endIndex);
-
   // Resetear página cuando cambian los filtros
   useEffect(() => {
     setCurrentPage(1);
   }, [fechaDesde, fechaHasta, idVendedor, searchTerm]);
 
-  // Calcular estadísticas
+  // Calcular estadísticas solo de la página actual (limitado, pero necesario para UI)
+  // Nota: Para estadísticas precisas de todas las ventas filtradas, sería necesario
+  // una consulta separada o agregar estadísticas al resultado de la paginación
   const stats = useMemo(() => {
-    if (!filteredSales) return { total: 0, count: 0, promedio: 0 };
+    if (!sales || sales.length === 0) return { total: 0, count: 0, promedio: 0 };
     
-    const completadas = filteredSales.filter(s => s.estado === 'completada');
+    const completadas = sales.filter(s => s.estado === 'completada');
     const total = completadas.reduce((sum, sale) => sum + sale.total, 0);
     const count = completadas.length;
     const promedio = count > 0 ? total / count : 0;
     
     return { total, count, promedio };
-  }, [filteredSales]);
+  }, [sales]);
+
+  // Las ventas ya vienen paginadas del servidor
+  const paginatedSales = sales;
 
   // Obtener nombre del vendedor
   const getVendedorName = (idVendedor: string) => {
@@ -333,14 +325,20 @@ export default function SalesHistory() {
 
   const hasActiveFilters = fechaDesde || fechaHasta || idVendedor || searchTerm;
 
-  // Exportar a PDF
+  // Exportar a PDF (usa getAll para obtener todos los datos filtrados)
   const handleExportPDF = async () => {
-    if (!filteredSales || filteredSales.length === 0) {
-      toast.error('No hay datos para exportar');
-      return;
-    }
-
     try {
+      const allSales = await salesService.getAll({
+        fechaDesde: fechaDesde || undefined,
+        fechaHasta: fechaHasta || undefined,
+        id_vendedor: user?.rol === 'vendedor' ? user.id : (idVendedor || undefined),
+      });
+
+      if (!allSales || allSales.length === 0) {
+        toast.error('No hay datos para exportar');
+        return;
+      }
+
       await exportService.exportToPDF({
         title: 'HISTORIAL DE VENTAS',
         columns: [
@@ -352,7 +350,7 @@ export default function SalesHistory() {
           { header: 'Método de Pago', dataKey: 'metodo_pago', width: 35 },
           { header: 'Estado', dataKey: 'estado', width: 30 },
         ],
-        data: filteredSales.map((sale: any) => {
+        data: allSales.map((sale: any) => {
           const detalles = sale.detalle_venta || [];
           const productos = detalles.map((det: any) => {
             const nombre = det.productos?.nombre || 'N/A';
@@ -383,14 +381,20 @@ export default function SalesHistory() {
     }
   };
 
-  // Exportar a Excel
+  // Exportar a Excel (usa getAll para obtener todos los datos filtrados)
   const handleExportExcel = async () => {
-    if (!filteredSales || filteredSales.length === 0) {
-      toast.error('No hay datos para exportar');
-      return;
-    }
-
     try {
+      const allSales = await salesService.getAll({
+        fechaDesde: fechaDesde || undefined,
+        fechaHasta: fechaHasta || undefined,
+        id_vendedor: user?.rol === 'vendedor' ? user.id : (idVendedor || undefined),
+      });
+
+      if (!allSales || allSales.length === 0) {
+        toast.error('No hay datos para exportar');
+        return;
+      }
+
       await exportService.exportToExcel({
         title: 'Historial de Ventas',
         columns: [
@@ -402,7 +406,7 @@ export default function SalesHistory() {
           { header: 'Método de Pago', dataKey: 'metodo_pago', width: 35 },
           { header: 'Estado', dataKey: 'estado', width: 30 },
         ],
-        data: filteredSales.map((sale: any) => {
+        data: allSales.map((sale: any) => {
           const detalles = sale.detalle_venta || [];
           const productos = detalles.map((det: any) => {
             const nombre = det.productos?.nombre || 'N/A';
@@ -738,7 +742,7 @@ export default function SalesHistory() {
             {totalPages > 1 && (
               <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-muted-foreground">
-                  Mostrando {startIndex + 1} - {Math.min(endIndex, filteredSales.length)} de {filteredSales.length} ventas
+                  Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalSales)} de {totalSales} ventas
                 </div>
                 <Pagination>
                   <PaginationContent>
