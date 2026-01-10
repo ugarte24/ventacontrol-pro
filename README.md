@@ -449,6 +449,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.15.0  
-**Última actualización**: Diciembre 2025  
+**Versión**: 2.18.0  
+**Última actualización**: Enero 2026  
 **Estado**: Sistema completo con Internacionalización en Español - En producción
