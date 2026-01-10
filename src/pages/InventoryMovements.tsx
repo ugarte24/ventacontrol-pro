@@ -174,6 +174,7 @@ export default function InventoryMovements() {
       id_producto?: string;
       tipo_movimiento?: 'entrada' | 'salida';
       motivo?: 'venta' | 'ajuste' | 'compra' | 'devolución';
+      searchTerm?: string;
     } = {
       page: currentPage,
       pageSize: itemsPerPage,
@@ -184,9 +185,12 @@ export default function InventoryMovements() {
     if (idProducto) params.id_producto = idProducto;
     if (tipoMovimiento) params.tipo_movimiento = tipoMovimiento;
     if (motivo) params.motivo = motivo;
+    if (searchTerm && searchTerm.trim()) {
+      params.searchTerm = searchTerm.trim();
+    }
     
     return params;
-  }, [currentPage, itemsPerPage, fechaDesde, fechaHasta, idProducto, tipoMovimiento, motivo]);
+  }, [currentPage, itemsPerPage, fechaDesde, fechaHasta, idProducto, tipoMovimiento, motivo, searchTerm]);
 
   const { data: paginatedData, isLoading, error } = useInventoryMovementsPaginated(paginationParams);
 
@@ -197,7 +201,7 @@ export default function InventoryMovements() {
   // Resetear página cuando cambian los filtros
   useEffect(() => {
     setCurrentPage(1);
-  }, [fechaDesde, fechaHasta, idProducto, tipoMovimiento, motivo]);
+  }, [fechaDesde, fechaHasta, idProducto, tipoMovimiento, motivo, searchTerm]);
 
   // Calcular estadísticas (nota: esto ahora solo cuenta la página actual)
   const stats = useMemo(() => {

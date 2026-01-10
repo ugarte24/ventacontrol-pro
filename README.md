@@ -315,6 +315,12 @@ ventacontrol-pro/
   - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
   - ✅ Corrección de mensajes duplicados en la edición de movimientos
 
+- ✅ **Mejoras en v2.19.0:**
+  - Búsqueda por texto en Movimientos de Inventario: Implementada búsqueda completa que permite buscar por nombre de producto, código de producto, nombre de usuario y observación
+  - Búsqueda por texto en Historial de Ventas: Implementada búsqueda completa que permite buscar por nombre de producto, método de pago, estado y hora de venta
+  - Optimización de búsquedas: Las búsquedas ahora obtienen más datos del servidor y aplican filtrado client-side para permitir búsquedas en campos relacionados (productos, usuarios)
+  - Corrección de errores en búsquedas: Corregido el error con campos tipo TIME que no soportaban operador ilike en PostgreSQL
+
 - ✅ **Mejoras en v2.18.0:**
   - Exportación de Movimientos de Inventario corregida: Se corrigió la exportación a PDF y Excel para mostrar correctamente los nombres de productos y códigos. Se actualizó el método `getAll` del servicio de movimientos de inventario para usar joins directos con Supabase, mejorando la consistencia y eficiencia
   - Exportación de Historial de Ventas mejorada: Actualizada para usar `getAll` en lugar de datos paginados, asegurando que se exporten todos los datos filtrados y no solo la página actual
@@ -449,6 +455,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.18.0  
+**Versión**: 2.19.0  
 **Última actualización**: Enero 2026  
 **Estado**: Sistema completo con Internacionalización en Español - En producción

@@ -94,8 +94,13 @@ export const salesService = {
       searchTerm,
     } = params;
 
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    // Si hay búsqueda por texto, necesitamos obtener más datos para filtrar después
+    // debido a las limitaciones de Supabase con joins en búsquedas
+    const needsClientSideFilter = searchTerm && searchTerm.trim();
+    const queryLimit = needsClientSideFilter ? pageSize * 10 : pageSize; // Obtener 10 páginas si hay búsqueda
+    
+    const from = needsClientSideFilter ? 0 : (page - 1) * pageSize;
+    const to = needsClientSideFilter ? queryLimit - 1 : from + pageSize - 1;
 
     let query = supabase
       .from('ventas')
@@ -111,7 +116,7 @@ export const salesService = {
             nombre
           )
         )
-      `, { count: 'exact' })
+      `, { count: needsClientSideFilter ? 'exact' : 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -125,27 +130,56 @@ export const salesService = {
       query = query.eq('id_vendedor', id_vendedor);
     }
     
-    // Búsqueda por texto: hora, método de pago, estado
-    // Nota: La búsqueda por nombre de producto requiere filtrar después de obtener los datos
-    // debido a las relaciones anidadas en Supabase
-    if (searchTerm && searchTerm.trim()) {
-      query = query.or(`hora.ilike.%${searchTerm}%,metodo_pago.ilike.%${searchTerm}%,estado.ilike.%${searchTerm}%`);
-    }
+    // NO aplicamos búsqueda SQL cuando hay búsqueda, porque necesitamos buscar en productos
+    // que requiere filtrado client-side. Obtenemos más datos y filtramos después.
+    // La búsqueda SQL solo funciona en campos de la tabla principal, pero necesitamos
+    // buscar también en productos (tabla relacionada), por lo que hacemos todo client-side
 
     const { data, error, count } = await query;
 
     if (error) throw new Error(handleSupabaseError(error));
     
     // Calcular saldo_pendiente para ventas a crédito
-    const salesWithBalance = (data || []).map((sale: any) => {
+    let salesWithBalance = (data || []).map((sale: any) => {
       if (sale.metodo_pago === 'credito' && sale.monto_pagado !== null) {
         sale.saldo_pendiente = parseFloat(sale.total) - parseFloat(sale.monto_pagado || 0);
       }
       return sale;
     });
+
+    // Filtrar por nombre de producto, hora y otros campos si hay búsqueda
+    if (needsClientSideFilter) {
+      const term = searchTerm!.trim().toLowerCase();
+      salesWithBalance = salesWithBalance.filter((sale: any) => {
+        // Buscar en campos de la venta
+        const hora = sale.hora ? String(sale.hora).toLowerCase() : ''; // Convertir hora a string
+        const metodoPago = sale.metodo_pago?.toLowerCase() || '';
+        const estado = sale.estado?.toLowerCase() || '';
+        
+        // Buscar en nombres de productos en los detalles
+        const detalles = sale.detalle_venta || [];
+        const productosNames = detalles
+          .map((det: any) => det.productos?.nombre?.toLowerCase() || '')
+          .join(' ');
+        
+        return (
+          hora.includes(term) ||
+          metodoPago.includes(term) ||
+          estado.includes(term) ||
+          productosNames.includes(term)
+        );
+      });
+    }
     
-    const total = count || 0;
+    const total = needsClientSideFilter ? salesWithBalance.length : (count || 0);
     const totalPages = Math.ceil(total / pageSize);
+
+    // Aplicar paginación client-side si hubo búsqueda por productos
+    if (needsClientSideFilter) {
+      const fromIndex = (page - 1) * pageSize;
+      const toIndex = fromIndex + pageSize;
+      salesWithBalance = salesWithBalance.slice(fromIndex, toIndex);
+    }
 
     return {
       data: salesWithBalance as Sale[],

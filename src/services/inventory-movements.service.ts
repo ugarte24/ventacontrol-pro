@@ -18,6 +18,7 @@ export interface InventoryMovementsQueryParams {
   id_producto?: string;
   tipo_movimiento?: 'entrada' | 'salida';
   motivo?: 'venta' | 'ajuste' | 'compra' | 'devolución';
+  searchTerm?: string;
 }
 
 export interface InventoryMovement {
@@ -122,10 +123,16 @@ export const inventoryMovementsService = {
       id_producto,
       tipo_movimiento,
       motivo,
+      searchTerm,
     } = params;
 
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    // Si hay búsqueda por texto, necesitamos obtener más datos para filtrar después
+    // debido a las limitaciones de Supabase con joins en búsquedas
+    const needsClientSideFilter = searchTerm && searchTerm.trim();
+    const queryLimit = needsClientSideFilter ? pageSize * 10 : pageSize; // Obtener 10 páginas si hay búsqueda
+    
+    const from = needsClientSideFilter ? 0 : (page - 1) * pageSize;
+    const to = needsClientSideFilter ? queryLimit - 1 : from + pageSize - 1;
 
     let query = supabase
       .from('movimientos_inventario')
@@ -136,7 +143,7 @@ export const inventoryMovementsService = {
           nombre,
           codigo
         )
-      `, { count: 'exact' })
+      `, { count: needsClientSideFilter ? 'exact' : 'exact' })
       .order('fecha', { ascending: false })
       .order('created_at', { ascending: false })
       .range(from, to);
@@ -156,6 +163,10 @@ export const inventoryMovementsService = {
     if (motivo) {
       query = query.eq('motivo', motivo);
     }
+    // NO aplicamos búsqueda SQL cuando hay búsqueda, porque necesitamos buscar en productos
+    // que requiere filtrado client-side. Obtenemos más datos y filtramos después.
+    // La búsqueda SQL solo funciona en campos de la tabla principal, pero necesitamos
+    // buscar también en productos (tabla relacionada), por lo que hacemos todo client-side
 
     const { data, error, count } = await query;
 
@@ -198,15 +209,40 @@ export const inventoryMovementsService = {
     }
 
     // Transformar los datos agregando las relaciones
-    const movements = data.map((item: any) => ({
+    let movements = data.map((item: any) => ({
       ...item,
       producto: item.productos ? { nombre: item.productos.nombre, codigo: item.productos.codigo } : undefined,
       usuario: item.id_usuario ? usersMap.get(item.id_usuario) : undefined,
       productos: undefined, // Remover el objeto productos del resultado
     })) as InventoryMovement[];
 
-    const total = count || 0;
+    // Filtrar por término de búsqueda en todos los campos (producto, usuario, observación)
+    if (needsClientSideFilter) {
+      const term = searchTerm!.trim().toLowerCase();
+      movements = movements.filter(movement => {
+        const productoNombre = movement.producto?.nombre?.toLowerCase() || '';
+        const productoCodigo = movement.producto?.codigo?.toLowerCase() || '';
+        const usuarioNombre = movement.usuario?.nombre?.toLowerCase() || '';
+        const observacion = movement.observacion?.toLowerCase() || '';
+        
+        return (
+          productoNombre.includes(term) ||
+          productoCodigo.includes(term) ||
+          usuarioNombre.includes(term) ||
+          observacion.includes(term)
+        );
+      });
+    }
+
+    // Aplicar paginación client-side si hubo búsqueda
+    const total = needsClientSideFilter ? movements.length : (count || 0);
     const totalPages = Math.ceil(total / pageSize);
+    
+    if (needsClientSideFilter) {
+      const fromIndex = (page - 1) * pageSize;
+      const toIndex = fromIndex + pageSize;
+      movements = movements.slice(fromIndex, toIndex);
+    }
 
     return {
       data: movements,
