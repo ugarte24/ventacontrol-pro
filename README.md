@@ -315,6 +315,11 @@ ventacontrol-pro/
   - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
   - ✅ Corrección de mensajes duplicados en la edición de movimientos
 
+- ✅ **Mejoras en v2.18.0:**
+  - Exportación de Movimientos de Inventario corregida: Se corrigió la exportación a PDF y Excel para mostrar correctamente los nombres de productos y códigos. Se actualizó el método `getAll` del servicio de movimientos de inventario para usar joins directos con Supabase, mejorando la consistencia y eficiencia
+  - Exportación de Historial de Ventas mejorada: Actualizada para usar `getAll` en lugar de datos paginados, asegurando que se exporten todos los datos filtrados y no solo la página actual
+  - Optimización del servicio de movimientos de inventario: Se cambió de consultas separadas a joins directos para mejorar el rendimiento y consistencia
+
 - ✅ **Mejoras en v2.17.0:**
   - Mensajes de error mejorados: Mensajes más claros y específicos cuando el código de producto ya existe ("El código ya existe. Por favor, usa un código diferente.")
   - Compresión de imágenes optimizada: Límite de compresión reducido de 2.5MB a 1MB para optimizar el uso de storage
