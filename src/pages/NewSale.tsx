@@ -3,7 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useCart } from '@/contexts/CartContext';
 import { PaymentMethod, Client } from '@/types';
 import { useAuth } from '@/contexts';
-import { useProducts, useSearchProducts } from '@/hooks/useProducts';
+import { useProductsPaginated } from '@/hooks/useProducts';
 import { useCreateSale } from '@/hooks/useSales';
 import { useClients, useSearchClients } from '@/hooks/useClients';
 import { Sale } from '@/types';
@@ -103,24 +103,22 @@ export default function NewSale() {
   
   const { items, addItem, removeItem, updateQuantity, clearCart, total, itemCount } = useCart();
   const { user } = useAuth();
-  const { data: allProducts = [], isLoading: loadingProducts } = useProducts();
-  const { data: searchResults = [], isLoading: searching } = useSearchProducts(searchTerm);
+  
+  // Usar paginación del servidor (solo productos activos para ventas)
+  const { data: paginatedData, isLoading: loadingProducts } = useProductsPaginated({
+    page: currentPage,
+    pageSize: itemsPerPage,
+    includeInactive: false, // Solo productos activos en ventas
+    searchTerm: searchTerm.trim() || undefined,
+  });
+
+  const products = paginatedData?.data || [];
+  const totalPages = paginatedData?.totalPages || 1;
+  const totalProducts = paginatedData?.total || 0;
+  
   const { data: allClients = [] } = useClients();
   const { data: clientSearchResults = [] } = useSearchClients(clientSearchTerm);
   const createSaleMutation = useCreateSale();
-
-  const filteredProducts = useMemo(() => {
-    if (searchTerm.length > 0 && searchResults.length > 0) {
-      return searchResults;
-    }
-    return allProducts;
-  }, [searchTerm, searchResults, allProducts]);
-
-  // Calcular productos paginados
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
 
   // Resetear a página 1 cuando cambia el término de búsqueda
   useEffect(() => {
@@ -269,9 +267,9 @@ export default function NewSale() {
         vendedorName = user?.nombre || 'N/A';
       }
 
-      // Obtener nombres de productos
-      const detailsWithProducts = details.map((detail) => {
-        const product = allProducts.find(p => p.id === detail.id_producto);
+      // Los detalles ya incluyen la información del producto desde la consulta
+      const detailsWithProducts = details.map((detail: any) => {
+        const product = detail.productos;
         return {
           ...detail,
           producto: product ? {
@@ -372,18 +370,18 @@ export default function NewSale() {
 
           {/* Products Grid */}
           <div className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-2 xl:grid-cols-3">
-            {loadingProducts || searching ? (
+            {loadingProducts ? (
               <>
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <Skeleton key={i} className="h-32" />
                 ))}
               </>
-            ) : filteredProducts.length === 0 ? (
+            ) : products.length === 0 ? (
               <div className="col-span-full text-center py-12 text-muted-foreground">
                 No se encontraron productos
               </div>
             ) : (
-              paginatedProducts.map((product, index) => {
+              products.map((product, index) => {
                 const cartItem = items.find(item => item.id === product.id);
                 const availableStock = product.stock_actual - (cartItem?.cantidad || 0);
                 const canAdd = product.estado === 'activo' && availableStock > 0;
@@ -477,7 +475,7 @@ export default function NewSale() {
           </div>
 
           {/* Paginación */}
-          {!loadingProducts && !searching && filteredProducts.length > itemsPerPage && (
+          {!loadingProducts && totalPages > 1 && (
             <div className="flex justify-center pt-4">
               <Pagination>
                 <PaginationContent>
@@ -558,9 +556,9 @@ export default function NewSale() {
           )}
 
           {/* Información de paginación */}
-          {!loadingProducts && !searching && filteredProducts.length > 0 && (
+          {!loadingProducts && totalProducts > 0 && (
             <div className="text-center text-sm text-muted-foreground pt-2">
-              Mostrando {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} de {filteredProducts.length} productos
+              Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalProducts)} de {totalProducts} productos
             </div>
           )}
         </div>

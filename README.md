@@ -315,6 +315,12 @@ ventacontrol-pro/
   - ✅ Preservación de posición de scroll y estado de secciones en el sidebar
   - ✅ Corrección de mensajes duplicados en la edición de movimientos
 
+- ✅ **Mejoras en v2.20.0:**
+  - Paginación del servidor en Nueva Venta: Implementada paginación del servidor en la página de Nueva Venta, solucionando el problema donde solo se mostraban 1000 productos (límite de Supabase)
+  - Acceso a todos los productos activos: Ahora se pueden visualizar todos los productos activos disponibles para venta, no solo los primeros 1000
+  - Mejora de rendimiento: La paginación del servidor carga solo 12 productos por página, mejorando significativamente el rendimiento
+  - Búsqueda optimizada: La búsqueda de productos en Nueva Venta ahora se realiza en el servidor, siendo más eficiente
+
 - ✅ **Mejoras en v2.19.0:**
   - Búsqueda por texto en Movimientos de Inventario: Implementada búsqueda completa que permite buscar por nombre de producto, código de producto, nombre de usuario y observación
   - Búsqueda por texto en Historial de Ventas: Implementada búsqueda completa que permite buscar por nombre de producto, método de pago, estado y hora de venta
@@ -455,6 +461,6 @@ El sistema implementa un manejo robusto de fechas para evitar problemas de zona 
 
 ---
 
-**Versión**: 2.19.0  
+**Versión**: 2.20.0  
 **Última actualización**: Enero 2026  
 **Estado**: Sistema completo con Internacionalización en Español - En producción
